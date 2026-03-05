@@ -52,6 +52,16 @@ const proxy = net.createServer(localConn => {
   localConn.on('close', cleanup('local close'))
 })
 
+proxy.on('error', (err) => {
+  if (err.code === 'EADDRINUSE') {
+    console.error(`[!] Port ${localPort} is already in use. Kill the old client or use a different port:`)
+    console.error(`    node client.js <key> 2223`)
+  } else {
+    console.error('[!] Proxy error:', err.message)
+  }
+  process.exit(1)
+})
+
 await dht.ready()
 console.log('[i] DHT bootstrapped')
 

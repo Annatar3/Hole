@@ -16,7 +16,7 @@ function loadOrCreateKeyPair () {
     const raw = fs.readFileSync(KEYFILE)
     return {
       publicKey: raw.slice(0, 32),
-      secretKey: raw.slice(32, 64)
+      secretKey: raw.slice(32)
     }
   }
   const kp = DHT.keyPair()
@@ -37,7 +37,10 @@ console.log('Public key (share with clients):')
 console.log(keyPair.publicKey.toString('hex'))
 console.log('')
 
-const dht = new DHT({ port: 49737 })
+const dht = new DHT()
+
+await dht.ready()
+console.log('[i] DHT bootstrapped')
 
 const server = dht.createServer(conn => {
   const tag = conn.remotePublicKey?.toString('hex').slice(0, 12) ?? 'unknown'
