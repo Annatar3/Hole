@@ -1,0 +1,17 @@
+{
+  "name": "hole",
+  "version": "1.0.0",
+  "description": "P2P SSH tunnel via HyperDHT / Holepunch",
+  "type": "module",
+  "main": "agent.js",
+  "scripts": {
+    "agent": "node agent.js",
+    "client": "node client.js"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "b4a": "^1.8.0",
+    "hyperdht": "^6.29.1"
+  }
+}
