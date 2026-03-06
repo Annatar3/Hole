@@ -8,15 +8,26 @@
     "hole": "./hole.js"
   },
   "scripts": {
-    "start":  "node hole.js",
-    "agent":  "node hole.js agent",
+    "start": "node hole.js",
+    "agent": "node hole.js agent",
     "client": "node hole.js client",
-    "relay":  "node hole.js relay"
+    "relay": "node hole.js relay",
+    "build": "node scripts/build.js"
+  },
+  "pkg": {
+    "assets": [
+      "node_modules/sodium-native/prebuilds/**/*.node",
+      "node_modules/udx-native/prebuilds/**/*.node"
+    ]
   },
   "author": "",
   "license": "ISC",
   "dependencies": {
     "b4a": "^1.8.0",
     "hyperdht": "^6.29.1"
+  },
+  "devDependencies": {
+    "esbuild": "^0.27.3",
+    "pkg": "^5.8.1"
   }
 }
