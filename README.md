@@ -1,12 +1,14 @@
 Hole — P2P SSH over HyperDHT
 ============================
 
-**Hole** is a small agent + CLI that lets you SSH into machines over the Holepunch / HyperDHT stack, without opening ports or setting up a VPN. It supports:
+**Hole** is a small agent + CLI that gives you a P2P access layer for your machines over the Holepunch / HyperDHT stack — no open ports, no VPN, no accounts. It supports:
 
 - Direct P2P tunnels over HyperDHT (no port forwarding).
 - Optional relay mode for CGNAT / mobile hotspots.
 - Named devices and multi-service forwards (SSH, RDP, HTTP, …).
+- One-shot SSH, remote exec, and file copy (`hole ssh`, `hole exec`, `hole copy`).
 - ACLs to restrict which client keys may connect.
+- Audit log and reachability checks (`hole audit`, `hole ping`).
 - Single, self-contained binaries for Linux, Windows, and macOS.
 
 > All state lives in `~/.hole/` (keypair, devices, ACL).
@@ -224,10 +226,11 @@ hole.exe uninstall-service
 
 ## Diagnostics
 
-Use `hole doctor` to quickly verify your environment:
+Use `hole doctor` and `hole ping` to quickly verify your environment:
 
 ```bash
 hole doctor
+hole ping my-remote
 ```
 
 It checks:
@@ -236,16 +239,20 @@ It checks:
 - Ability to bind a local UDP socket.
 - HyperDHT bootstrap (DHT `ready()`).
 
-If all are **OK**, Hole should work; otherwise it prints hints (e.g. “try relay mode” if UDP/DHT is blocked).
+If `doctor` is **OK** and `hole ping my-remote` shows the device as **UP** with reasonable latency, Hole should work; otherwise it prints hints (e.g. “try relay mode” if UDP/DHT is blocked).
 
 ## Commands overview
 
 - `hole agent [--name <device>] [--relay host:port] [--port n] [--forward svc:port]`
 - `hole ssh <device|key> [user] [--relay host:port] [-- extra-ssh-args]`
+- `hole exec <device|key> <user> [--relay host:port] -- <command>`
+- `hole copy <src> <dest> [user]` (remote paths use `device:/path`)
+- `hole ping <device|key> [--count n] [--relay host:port]`
 - `hole client <device|key> [service] [--port n] [--relay host:port]`
 - `hole relay [--port n]`
 - `hole install-service [--name <device>] [--relay host:port]`
 - `hole uninstall-service`
 - `hole list / add / remove / status`
+- `hole audit [--tail n]`
 - `hole acl list / add / remove`
 - `hole doctor`
