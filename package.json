@@ -1,12 +1,17 @@
 {
   "name": "hole",
-  "version": "1.0.0",
-  "description": "P2P SSH tunnel via HyperDHT / Holepunch",
+  "version": "0.2.0",
+  "description": "P2P SSH tunnel via HyperDHT — no port forwarding, no VPN",
   "type": "module",
-  "main": "agent.js",
+  "main": "hole.js",
+  "bin": {
+    "hole": "./hole.js"
+  },
   "scripts": {
-    "agent": "node agent.js",
-    "client": "node client.js"
+    "start":  "node hole.js",
+    "agent":  "node hole.js agent",
+    "client": "node hole.js client",
+    "relay":  "node hole.js relay"
   },
   "author": "",
   "license": "ISC",
