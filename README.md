@@ -13,6 +13,25 @@ Hole — P2P SSH over HyperDHT
 
 > All state lives in `~/.hole/` (keypair, devices, ACL).
 
+## Network requirements
+
+- **Direct mode (no relay)**:
+  - Both **client** and **agent** must have **outbound TCP and UDP** to the internet.
+  - No inbound ports or router port forwarding are required.
+  - Works best when at least one side is on a “normal” home/office network (not behind very strict CGNAT or locked-down corporate egress).
+
+- **Relay mode**:
+  - You run `hole relay --host <public-ip> --port 49737` on a small VPS or server with:
+    - A **public IPv4 address**.
+    - Firewall/security group allowing **inbound UDP** on the relay port (default `49737`).
+  - Both **client** and **agent** only need **outbound UDP** to `<relay-ip>:<port>`; they do **not** need any inbound ports.
+  - The agent’s SSH daemon still only needs to listen on `127.0.0.1:22` (or another local port) — it is never exposed directly.
+
+On cloud providers (GCP, AWS, etc.), make sure:
+
+- The relay instance’s security group / firewall allows **UDP `<port>` from the internet** (or from the networks you care about).
+- The `vpn`/backend instances you act as agents from allow **outbound UDP** to the relay host and port.
+
 ## Install
 
 ### From source (dev workflow)
