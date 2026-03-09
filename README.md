@@ -88,10 +88,14 @@ Requirements:
 
 Steps:
 
-1. Register the agent’s key under a friendly name:
+1. Register the agent’s key under a friendly name (optionally with a default user/relay):
 
    ```bash
+   # simplest
    hole add my-remote 9320641058af2f76abd1...
+
+   # or with defaults
+   hole add my-remote 9320641058af2f76abd1... --user alice --relay 203.0.113.10:49737
    ```
 
 2. SSH in — one command, one terminal:

@@ -65,6 +65,10 @@ Options for ping:
 Options for audit:
   --tail    <n>                Show last N entries (default: 50)
 
+Options for add:
+  --user    <name>             Default SSH username for this device
+  --relay   <host:port>        Default relay to use for this device
+
 Options for client:
   --port    <n>                Local proxy port (default: 2222)
   --relay   <host:port>        Use a custom relay node
@@ -149,8 +153,11 @@ async function main () {
     // ── ssh ────────────────────────────────────────────────────────────────
     case 'ssh': {
       const target = positional[0]
-      const user   = positional[1] ?? flags.user ?? null
       if (!target) die('Usage: hole ssh <name|key> [user] [--relay host:port] [-- extra-ssh-args]')
+      const devices = loadRegistry()
+      const dev     = /^[0-9a-f]{64}$/i.test(target) ? null : devices[target]
+      const user    = positional[1] ?? flags.user ?? dev?.user ?? null
+      const relay   = flags.relay ?? dev?.relay ?? null
       // Everything after `--` is forwarded directly to ssh
       const ddash    = process.argv.indexOf('--')
       const sshArgs  = ddash !== -1 ? process.argv.slice(ddash + 1) : []
@@ -158,7 +165,7 @@ async function main () {
       await ssh({
         target,
         user,
-        relay:   flags.relay ?? null,
+        relay,
         sshArgs
       })
       break
@@ -168,11 +175,13 @@ async function main () {
     case 'ping': {
       const target = positional[0]
       if (!target) die('Usage: hole ping <name|key> [--count 4] [--relay host:port]')
+      const devices = loadRegistry()
+      const dev     = /^[0-9a-f]{64}$/i.test(target) ? null : devices[target]
       const { ping } = await import('./lib/ping.js')
       await ping({
         target,
         count: parseInt(flags.count ?? '4', 10),
-        relay: flags.relay ?? null
+        relay: flags.relay ?? dev?.relay ?? null
       })
       break
     }
@@ -180,12 +189,15 @@ async function main () {
     // ── exec ───────────────────────────────────────────────────────────────
     case 'exec': {
       const target = positional[0]
-      const user   = positional[1] ?? flags.user ?? null
       if (!target) die('Usage: hole exec <name|key> <user> [--relay host:port] -- <command>')
+      const devices = loadRegistry()
+      const dev     = /^[0-9a-f]{64}$/i.test(target) ? null : devices[target]
+      const user    = positional[1] ?? flags.user ?? dev?.user ?? null
+      const relay   = flags.relay ?? dev?.relay ?? null
       const ddash = process.argv.indexOf('--')
       const cmd_  = ddash !== -1 ? process.argv.slice(ddash + 1) : []
       const { exec } = await import('./lib/client.js')
-      await exec({ target, user, relay: flags.relay ?? null, cmd: cmd_ })
+      await exec({ target, user, relay, cmd: cmd_ })
       break
     }
 
@@ -195,7 +207,7 @@ async function main () {
       // remote paths: device:/path
       const src  = positional[0]
       const dest = positional[1]
-      const user = positional[2] ?? flags.user ?? null
+      const userFlag = positional[2] ?? flags.user ?? null
       if (!src || !dest) die('Usage: hole copy <src> <dest> [user]\n  Remote: device:/path  e.g. hole copy file.txt my-server:/tmp/ alice')
       // Derive target device name from whichever arg is remote (device:/path)
       const REMOTE_RE = /^([^/:\\]+):/
@@ -203,8 +215,12 @@ async function main () {
       const destDev = dest.match(REMOTE_RE)?.[1]
       const target  = srcDev ?? destDev
       if (!target) die('One of src or dest must be a remote path in the form device:/path')
+      const devices = loadRegistry()
+      const dev     = /^[0-9a-f]{64}$/i.test(target) ? null : devices[target]
+      const user    = userFlag ?? dev?.user ?? null
+      const relay   = flags.relay ?? dev?.relay ?? null
       const { copy } = await import('./lib/client.js')
-      await copy({ target, src, dest, user, relay: flags.relay ?? null })
+      await copy({ target, src, dest, user, relay })
       break
     }
 
@@ -221,11 +237,13 @@ async function main () {
       const service = positional[1] ?? null   // optional: ssh | rdp | web | ...
       if (!target) die('Usage: hole client <name|key> [service] [--port 2222] [--relay host:port]')
       const { run } = await import('./lib/client.js')
+      const devices = loadRegistry()
+      const dev     = /^[0-9a-f]{64}$/i.test(target) ? null : devices[target]
       await run({
         target,
         service,
         port:  parseInt(flags.port ?? '2222', 10),
-        relay: flags.relay ?? null
+        relay: flags.relay ?? dev?.relay ?? null
       })
       break
     }
@@ -289,8 +307,14 @@ async function main () {
       const [name, key] = positional
       if (!name || !key) die('Usage: hole add <name> <64-char-hex-key>')
       if (!/^[0-9a-f]{64}$/i.test(key)) die('Key must be a 64-character hex string.')
-      addDevice(name, key)
-      console.log(`Added "${name}" → ${key.slice(0, 16)}...`)
+      addDevice(name, key, {
+        user:  flags.user  ?? undefined,
+        relay: flags.relay ?? undefined
+      })
+      const extras = []
+      if (flags.user)  extras.push(`user=${flags.user}`)
+      if (flags.relay) extras.push(`relay=${flags.relay}`)
+      console.log(`Added "${name}" → ${key.slice(0, 16)}...${extras.length ? ` (${extras.join(', ')})` : ''}`)
       break
     }
 

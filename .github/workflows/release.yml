@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
 
     permissions:
-      contents: write   # allow creating releases and uploading assets
+      contents: write  
 
     steps:
       - name: Checkout
