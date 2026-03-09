@@ -1,6 +1,6 @@
 {
   "name": "hole",
-  "version": "0.2.0",
+  "version": "0.3.2",
   "description": "P2P SSH tunnel via HyperDHT — no port forwarding, no VPN",
   "type": "module",
   "main": "hole.js",

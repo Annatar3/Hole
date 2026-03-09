@@ -95,7 +95,10 @@ Steps:
    hole add my-remote 9320641058af2f76abd1...
 
    # or with defaults
-   hole add my-remote 9320641058af2f76abd1... --user alice --relay 203.0.113.10:49737
+   hole add my-remote 9320641058af2f76abd1... \
+     --user alice \
+     --relay 203.0.113.10:49737 \
+     --identity ~/.ssh/id_ed25519_my_remote
    ```
 
 2. SSH in — one command, one terminal:

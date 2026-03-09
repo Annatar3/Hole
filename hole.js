@@ -68,6 +68,7 @@ Options for audit:
 Options for add:
   --user    <name>             Default SSH username for this device
   --relay   <host:port>        Default relay to use for this device
+  --identity <path>            Default SSH identity file (private key) for this device
 
 Options for client:
   --port    <n>                Local proxy port (default: 2222)
@@ -158,6 +159,7 @@ async function main () {
       const dev     = /^[0-9a-f]{64}$/i.test(target) ? null : devices[target]
       const user    = positional[1] ?? flags.user ?? dev?.user ?? null
       const relay   = flags.relay ?? dev?.relay ?? null
+      const identity = flags.identity ?? dev?.identity ?? null
       // Everything after `--` is forwarded directly to ssh
       const ddash    = process.argv.indexOf('--')
       const sshArgs  = ddash !== -1 ? process.argv.slice(ddash + 1) : []
@@ -166,6 +168,7 @@ async function main () {
         target,
         user,
         relay,
+        identity,
         sshArgs
       })
       break
@@ -194,10 +197,11 @@ async function main () {
       const dev     = /^[0-9a-f]{64}$/i.test(target) ? null : devices[target]
       const user    = positional[1] ?? flags.user ?? dev?.user ?? null
       const relay   = flags.relay ?? dev?.relay ?? null
+      const identity = flags.identity ?? dev?.identity ?? null
       const ddash = process.argv.indexOf('--')
       const cmd_  = ddash !== -1 ? process.argv.slice(ddash + 1) : []
       const { exec } = await import('./lib/client.js')
-      await exec({ target, user, relay, cmd: cmd_ })
+      await exec({ target, user, relay, identity, cmd: cmd_ })
       break
     }
 
@@ -219,8 +223,9 @@ async function main () {
       const dev     = /^[0-9a-f]{64}$/i.test(target) ? null : devices[target]
       const user    = userFlag ?? dev?.user ?? null
       const relay   = flags.relay ?? dev?.relay ?? null
+      const identity = flags.identity ?? dev?.identity ?? null
       const { copy } = await import('./lib/client.js')
-      await copy({ target, src, dest, user, relay })
+      await copy({ target, src, dest, user, relay, identity })
       break
     }
 
@@ -308,12 +313,14 @@ async function main () {
       if (!name || !key) die('Usage: hole add <name> <64-char-hex-key>')
       if (!/^[0-9a-f]{64}$/i.test(key)) die('Key must be a 64-character hex string.')
       addDevice(name, key, {
-        user:  flags.user  ?? undefined,
-        relay: flags.relay ?? undefined
+        user:     flags.user     ?? undefined,
+        relay:    flags.relay    ?? undefined,
+        identity: flags.identity ?? undefined
       })
       const extras = []
       if (flags.user)  extras.push(`user=${flags.user}`)
       if (flags.relay) extras.push(`relay=${flags.relay}`)
+      if (flags.identity) extras.push(`identity=${flags.identity}`)
       console.log(`Added "${name}" → ${key.slice(0, 16)}...${extras.length ? ` (${extras.join(', ')})` : ''}`)
       break
     }
