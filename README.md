@@ -32,16 +32,19 @@ hole help
 
 ### Prebuilt binaries
 
-Build all binaries:
+You can either **download ready-made binaries from GitHub Releases** or build them yourself.
 
-```bash
-cd hole
-npm run build
-ls dist/
-# hole-linux-x64, hole-linux-arm64, hole-win-x64.exe, hole-macos-*, bundle.cjs
-```
+- Releases: see the “Releases” page on the GitHub repo (`Annatar3/Hole`) and grab the binary for your OS.
+- Manual build:
 
-Copy the relevant binary to your host and rename it to `hole` / `hole.exe`, then:
+  ```bash
+  cd hole
+  npm run build
+  ls dist/
+  # hole-linux-x64, hole-linux-arm64, hole-win-x64.exe, hole-macos-*, bundle.cjs
+  ```
+
+After you have a binary, copy it to the host and rename it to `hole` / `hole.exe`, then:
 
 ```bash
 chmod +x hole
