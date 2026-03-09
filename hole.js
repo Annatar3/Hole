@@ -70,6 +70,7 @@ Options for client:
   --relay   <host:port>        Use a custom relay node
 
 Options for relay:
+  --host    <ip>               Public IPv4 address to bind as relay
   --port    <n>                UDP port to listen on (default: 49737)
 
 Options for install-service:
@@ -232,7 +233,10 @@ async function main () {
     // ── relay ──────────────────────────────────────────────────────────────
     case 'relay': {
       const { run } = await import('./lib/relay.js')
-      await run({ port: parseInt(flags.port ?? '49737', 10) })
+      await run({
+        port: parseInt(flags.port ?? '49737', 10),
+        host: flags.host ?? null
+      })
       break
     }
 
