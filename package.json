@@ -16,15 +16,19 @@
   },
   "pkg": {
     "assets": [
-      "node_modules/sodium-native/prebuilds/**/*.node",
-      "node_modules/udx-native/prebuilds/**/*.node"
+      "node_modules/sodium-native/prebuilds/linux-x64/*.node",
+      "node_modules/udx-native/prebuilds/linux-x64/*.node",
+      "node_modules/node-pty/build/Release/*.node",
+      "node_modules/node-pty/prebuilds/linux-x64/*.node"
     ]
   },
   "author": "",
   "license": "ISC",
   "dependencies": {
     "b4a": "^1.8.0",
-    "hyperdht": "^6.29.1"
+    "hyperdht": "^6.29.1",
+    "node-pty": "^1.1.0",
+    "ws": "^8.19.0"
   },
   "devDependencies": {
     "esbuild": "^0.27.3",

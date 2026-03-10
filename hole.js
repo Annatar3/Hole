@@ -32,6 +32,7 @@ Usage:
   hole remove <name>           Remove a device from the registry
   hole status                  Show config paths and registry summary
   hole audit                   Show recent connection audit log
+  hole dashboard               Open the web fleet dashboard (localhost:4321)
 
   hole acl list                List allowed client keys (empty = all allowed)
   hole acl add <name> <key>    Allow a specific client key to connect
@@ -69,10 +70,17 @@ Options for add:
   --user    <name>             Default SSH username for this device
   --relay   <host:port>        Default relay to use for this device
   --identity <path>            Default SSH identity file (private key) for this device
+  --tag     <label>            Tag this device (repeatable: --tag homelab --tag web)
+
+Options for list:
+  --tag     <label>            Filter by tag
 
 Options for client:
   --port    <n>                Local proxy port (default: 2222)
   --relay   <host:port>        Use a custom relay node
+
+Options for dashboard:
+  --port    <n>                Port to listen on (default: 4321)
 
 Options for relay:
   --host    <ip>               Public IPv4 address to bind as relay
@@ -229,6 +237,13 @@ async function main () {
       break
     }
 
+    // ── dashboard ──────────────────────────────────────────────────────────
+    case 'dashboard': {
+      const { run } = await import('./lib/dashboard.js')
+      await run({ port: parseInt(flags.port ?? '4321', 10) })
+      break
+    }
+
     // ── audit ──────────────────────────────────────────────────────────────
     case 'audit': {
       const { printAuditLog } = await import('./lib/audit.js')
@@ -288,19 +303,29 @@ async function main () {
 
     // ── list ───────────────────────────────────────────────────────────────
     case 'list': {
-      const devices = listDevices()
-      const names   = Object.keys(devices)
+      let devices = listDevices()
+      const filterTag = flags.tag ?? null
+      if (filterTag) {
+        const tag = String(filterTag)
+        devices = Object.fromEntries(
+          Object.entries(devices).filter(([, d]) => (d.tags ?? []).includes(tag))
+        )
+      }
+      const names = Object.keys(devices)
       if (!names.length) {
-        console.log('No devices registered.\nAdd one with: hole add <name> <64-char-key>')
+        console.log(filterTag
+          ? `No devices with tag "${filterTag}".`
+          : 'No devices registered.\nAdd one with: hole add <name> <64-char-key>')
       } else {
-        console.log(`\n${'NAME'.padEnd(20)} ${'KEY (16)'.padEnd(18)} ${'HOST'.padEnd(18)} ${'SERVICES'.padEnd(22)} LAST SEEN`)
-        console.log('─'.repeat(100))
+        console.log(`\n${'NAME'.padEnd(20)} ${'KEY (16)'.padEnd(18)} ${'HOST'.padEnd(18)} ${'TAGS'.padEnd(18)} ${'SERVICES'.padEnd(20)} LAST SEEN`)
+        console.log('─'.repeat(108))
         for (const [name, d] of Object.entries(devices)) {
           const key  = (d.key ?? '').slice(0, 16) + '...'
           const host = (d.host ?? '').slice(0, 16)
+          const tags = (d.tags ?? []).join(', ').slice(0, 16) || '—'
           const svcs = Object.keys(d.services ?? {}).join(', ') || '—'
           const seen = (d.lastSeen ?? '').slice(0, 16).replace('T', ' ') || 'never'
-          console.log(`${name.padEnd(20)} ${key.padEnd(18)} ${host.padEnd(18)} ${svcs.padEnd(22)} ${seen}`)
+          console.log(`${name.padEnd(20)} ${key.padEnd(18)} ${host.padEnd(18)} ${tags.padEnd(18)} ${svcs.padEnd(20)} ${seen}`)
         }
         console.log('')
       }
@@ -312,15 +337,19 @@ async function main () {
       const [name, key] = positional
       if (!name || !key) die('Usage: hole add <name> <64-char-hex-key>')
       if (!/^[0-9a-f]{64}$/i.test(key)) die('Key must be a 64-character hex string.')
+      const rawTags = flags.tag ?? null
+      const tags    = rawTags ? [].concat(rawTags) : undefined
       addDevice(name, key, {
         user:     flags.user     ?? undefined,
         relay:    flags.relay    ?? undefined,
-        identity: flags.identity ?? undefined
+        identity: flags.identity ?? undefined,
+        tags
       })
       const extras = []
-      if (flags.user)  extras.push(`user=${flags.user}`)
-      if (flags.relay) extras.push(`relay=${flags.relay}`)
+      if (flags.user)     extras.push(`user=${flags.user}`)
+      if (flags.relay)    extras.push(`relay=${flags.relay}`)
       if (flags.identity) extras.push(`identity=${flags.identity}`)
+      if (tags?.length)   extras.push(`tags=${tags.join(',')}`)
       console.log(`Added "${name}" → ${key.slice(0, 16)}...${extras.length ? ` (${extras.join(', ')})` : ''}`)
       break
     }
