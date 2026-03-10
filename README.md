@@ -9,6 +9,7 @@ Hole — P2P SSH over HyperDHT
 - One-shot SSH, remote exec, and file copy (`hole ssh`, `hole exec`, `hole copy`).
 - ACLs to restrict which client keys may connect.
 - Audit log and reachability checks (`hole audit`, `hole ping`).
+- A local web dashboard for fleet management and browser SSH (`hole dashboard`).
 - Single, self-contained binaries for Linux, Windows, and macOS.
 
 > All state lives in `~/.hole/` (keypair, devices, ACL).
@@ -270,6 +271,33 @@ It checks:
 
 If `doctor` is **OK** and `hole ping my-remote` shows the device as **UP** with reasonable latency, Hole should work; otherwise it prints hints (e.g. “try relay mode” if UDP/DHT is blocked).
 
+## Web dashboard & fleet management
+
+Hole ships with a small local web dashboard that lets you see your fleet and open SSH sessions from the browser.
+
+- **Run it:** start from the same machine where your `~/.hole` registry lives:
+
+  ```bash
+  hole dashboard
+  # opens http://localhost:4321
+  ```
+
+- **Fleet view:** the left sidebar lists devices from `~/.hole/devices.json`. You can group them with tags:
+
+  ```bash
+  hole add my-vpn    <key> --tag vpn --tag prod
+  hole add my-lab    <key> --tag homelab
+
+  hole list --tag vpn
+  ```
+
+- **Terminal:** select a device, switch to the **Terminal** tab, and Hole will:
+  - Open a HyperDHT tunnel (using the device’s configured relay, if any).
+  - Spawn `ssh` via a PTY (`node-pty`) using the stored `user`, `identity`, and `relay`.
+  - Stream a full xterm.js terminal into your browser.
+
+All tunnel and SSH activity still flows over the same P2P layer; the dashboard is just a local UI on top.
+
 ## Commands overview
 
 - `hole agent [--name <device>] [--relay host:port] [--port n] [--forward svc:port]`
@@ -279,6 +307,7 @@ If `doctor` is **OK** and `hole ping my-remote` shows the device as **UP** with 
 - `hole ping <device|key> [--count n] [--relay host:port]`
 - `hole client <device|key> [service] [--port n] [--relay host:port]`
 - `hole relay [--port n]`
+- `hole dashboard`
 - `hole install-service [--name <device>] [--relay host:port]`
 - `hole uninstall-service`
 - `hole list / add / remove / status`
