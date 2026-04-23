@@ -1,6 +1,6 @@
 {
   "name": "hole",
-  "version": "0.3.4",
+  "version": "0.3.5",
   "description": "P2P SSH tunnel via HyperDHT — no port forwarding, no VPN",
   "type": "module",
   "main": "hole.js",
@@ -16,10 +16,10 @@
   },
   "pkg": {
     "assets": [
-      "node_modules/sodium-native/prebuilds/linux-x64/*.node",
-      "node_modules/udx-native/prebuilds/linux-x64/*.node",
+      "node_modules/sodium-native/prebuilds/**/*.node",
+      "node_modules/udx-native/prebuilds/**/*.node",
       "node_modules/node-pty/build/Release/*.node",
-      "node_modules/node-pty/prebuilds/linux-x64/*.node"
+      "node_modules/node-pty/prebuilds/**/*.node"
     ]
   },
   "author": "",
@@ -31,7 +31,7 @@
     "ws": "^8.19.0"
   },
   "devDependencies": {
-    "esbuild": "^0.27.3",
-    "pkg": "^5.8.1"
+    "@yao-pkg/pkg": "^6.18.2",
+    "esbuild": "^0.27.3"
   }
 }

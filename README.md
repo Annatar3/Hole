@@ -279,10 +279,14 @@ Hole ships with a local web dashboard that lets you manage fleet access without 
 
   ```bash
   hole dashboard
-  # opens http://localhost:4321
+  # auto-opens http://localhost:4321/?token=<your-token>
   ```
 
+  A secret token is generated once and stored in `~/.hole/dashboard-token`. The URL printed on start includes the token, and the browser is auto-opened with it. The token is required for all API calls, so the dashboard is only accessible to processes that know it.
+
 - **Fleet view:** the left sidebar lists devices from `~/.hole/devices.json`, with search and tag filtering.
+  - Click **+ Add device** to register a new device from the browser (no CLI needed).
+  - Click **Remove** in any device's Details tab to delete it from the registry.
 
 - **Details tab:** inspect and edit per-device registry settings:
   - default `user`, `relay`, `identity`
@@ -291,11 +295,15 @@ Hole ships with a local web dashboard that lets you manage fleet access without 
 
 - **Terminal tab:** open an interactive SSH session in-browser (xterm.js + node-pty), with optional SSH key override.
 
-- **Tunnels tab:** open and stop local tunnels from the UI.
+- **Tunnels tab:** open and stop local tunnels from the UI. Tunnels are persisted across dashboard restarts.
   - Quick presets for common ports/services (HTTP/SSH/RDP/MySQL/Postgres/Redis).
   - If a service key is missing, Hole can fall back to SSH local port forwarding for common services so you can still tunnel immediately.
 
-- **Files tab:** browse and transfer files over the same secure path.
+- **Exec tab:** run a shell command on one or more devices simultaneously.
+  - Scope: current device, all devices, or filter by tag.
+  - Results are shown in-browser with per-device output and timing.
+
+- **Files tab:** browse and transfer files over the same secure path. Operations timeout after 15 s.
 
 - **ACL tab (per host):** manages `~/.hole/acl.json` on the selected remote host (not a global ACL on your laptop).
 
