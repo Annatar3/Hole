@@ -26,6 +26,7 @@ Usage:
   hole relay                   Start a relay node (for CGNAT / mobile hotspot)
   hole install-service         Install agent as a system service (auto-start on boot)
   hole uninstall-service       Remove the system service
+  hole completion              Generate shell completion script (bash)
 
   hole list                    List known devices
   hole add <name> <key>        Add a device to the registry
@@ -74,6 +75,7 @@ Options for add:
 
 Options for list:
   --tag     <label>            Filter by tag
+  --ping                       Check live latency for each device
 
 Options for client:
   --port    <n>                Local proxy port (default: 2222)
@@ -301,6 +303,34 @@ async function main () {
       break
     }
 
+    // ── completion ─────────────────────────────────────────────────────────
+    case 'completion': {
+      console.log(`
+# Hole bash completion
+_hole_completion() {
+  local cur prev opts
+  COMPREPLY=()
+  cur="\${COMP_WORDS[COMP_CWORD]}"
+  prev="\${COMP_WORDS[COMP_CWORD-1]}"
+  opts="agent ssh exec copy ping client relay install-service uninstall-service list add remove status audit dashboard acl doctor help completion"
+
+  case "\${prev}" in
+    ssh|exec|copy|ping|client|remove|add)
+      local devices=$(hole list | awk 'NR>2 {print $1}' | grep -v '^─' | grep -v '^$')
+      COMPREPLY=( $(compgen -W "\${devices}" -- \${cur}) )
+      return 0
+      ;;
+    *)
+      ;;
+  esac
+
+  COMPREPLY=( $(compgen -W "\${opts}" -- \${cur}) )
+}
+complete -F _hole_completion hole
+`.trim())
+      break
+    }
+
     // ── list ───────────────────────────────────────────────────────────────
     case 'list': {
       let devices = listDevices()
@@ -317,15 +347,27 @@ async function main () {
           ? `No devices with tag "${filterTag}".`
           : 'No devices registered.\nAdd one with: hole add <name> <64-char-key>')
       } else {
-        console.log(`\n${'NAME'.padEnd(20)} ${'KEY (16)'.padEnd(18)} ${'HOST'.padEnd(18)} ${'TAGS'.padEnd(18)} ${'SERVICES'.padEnd(20)} LAST SEEN`)
-        console.log('─'.repeat(108))
+        const showPing = flags.ping === true
+        const { pingOne } = showPing ? await import('./lib/ping.js') : {}
+
+        const header = `\n${'NAME'.padEnd(20)} ${'KEY (16)'.padEnd(18)} ${'HOST'.padEnd(18)} ${'TAGS'.padEnd(18)} ${'SERVICES'.padEnd(20)} ${showPing ? 'PING'.padEnd(10) : ''}LAST SEEN`
+        console.log(header)
+        console.log('─'.repeat(showPing ? 118 : 108))
+
         for (const [name, d] of Object.entries(devices)) {
           const key  = (d.key ?? '').slice(0, 16) + '...'
           const host = (d.host ?? '').slice(0, 16)
           const tags = (d.tags ?? []).join(', ').slice(0, 16) || '—'
           const svcs = Object.keys(d.services ?? {}).join(', ') || '—'
           const seen = (d.lastSeen ?? '').slice(0, 16).replace('T', ' ') || 'never'
-          console.log(`${name.padEnd(20)} ${key.padEnd(18)} ${host.padEnd(18)} ${tags.padEnd(18)} ${svcs.padEnd(20)} ${seen}`)
+
+          let pingCol = ''
+          if (showPing) {
+            const res = await pingOne({ target: name, relay: d.relay })
+            pingCol = (res.online ? `${res.ms}ms` : 'DOWN').padEnd(10)
+          }
+
+          console.log(`${name.padEnd(20)} ${key.padEnd(18)} ${host.padEnd(18)} ${tags.padEnd(18)} ${svcs.padEnd(20)} ${pingCol}${seen}`)
         }
         console.log('')
       }

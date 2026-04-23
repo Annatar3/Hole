@@ -273,7 +273,7 @@ If `doctor` is **OK** and `hole ping my-remote` shows the device as **UP** with 
 
 ## Web dashboard & fleet management
 
-Hole ships with a small local web dashboard that lets you see your fleet and open SSH sessions from the browser.
+Hole ships with a local web dashboard that lets you manage fleet access without bouncing between multiple terminal sessions.
 
 - **Run it:** start from the same machine where your `~/.hole` registry lives:
 
@@ -282,21 +282,26 @@ Hole ships with a small local web dashboard that lets you see your fleet and ope
   # opens http://localhost:4321
   ```
 
-- **Fleet view:** the left sidebar lists devices from `~/.hole/devices.json`. You can group them with tags:
+- **Fleet view:** the left sidebar lists devices from `~/.hole/devices.json`, with search and tag filtering.
 
-  ```bash
-  hole add my-vpn    <key> --tag vpn --tag prod
-  hole add my-lab    <key> --tag homelab
+- **Details tab:** inspect and edit per-device registry settings:
+  - default `user`, `relay`, `identity`
+  - tags
+  - service-key mappings (`ssh`, `web`, etc.)
 
-  hole list --tag vpn
-  ```
+- **Terminal tab:** open an interactive SSH session in-browser (xterm.js + node-pty), with optional SSH key override.
 
-- **Terminal:** select a device, switch to the **Terminal** tab, and Hole will:
-  - Open a HyperDHT tunnel (using the device’s configured relay, if any).
-  - Spawn `ssh` via a PTY (`node-pty`) using the stored `user`, `identity`, and `relay`.
-  - Stream a full xterm.js terminal into your browser.
+- **Tunnels tab:** open and stop local tunnels from the UI.
+  - Quick presets for common ports/services (HTTP/SSH/RDP/MySQL/Postgres/Redis).
+  - If a service key is missing, Hole can fall back to SSH local port forwarding for common services so you can still tunnel immediately.
 
-All tunnel and SSH activity still flows over the same P2P layer; the dashboard is just a local UI on top.
+- **Files tab:** browse and transfer files over the same secure path.
+
+- **ACL tab (per host):** manages `~/.hole/acl.json` on the selected remote host (not a global ACL on your laptop).
+
+- **Audit tab:** view recent connection events and export to CSV.
+
+The dashboard is a local control plane; transport remains HyperDHT-based and end-to-end encrypted.
 
 ## Commands overview
 
