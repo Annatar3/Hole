@@ -1,14 +1,17 @@
 {
   "name": "hole",
   "version": "0.3.5",
-  "description": "P2P SSH tunnel via HyperDHT — no port forwarding, no VPN",
+  "description": "P2P service access via HyperDHT — no port forwarding, no VPN",
   "type": "module",
   "main": "hole.js",
   "bin": {
     "hole": "./hole.js"
   },
   "scripts": {
+    "postinstall": "node scripts/ensure-pkg-into-stream.js",
     "start": "node hole.js",
+    "up": "node hole.js up",
+    "tunnel": "node hole.js tunnel",
     "agent": "node hole.js agent",
     "client": "node hole.js client",
     "relay": "node hole.js relay",
@@ -24,6 +27,9 @@
   },
   "author": "",
   "license": "ISC",
+  "engines": {
+    "node": ">=18"
+  },
   "dependencies": {
     "b4a": "^1.8.0",
     "hyperdht": "^6.29.1",
@@ -32,6 +38,12 @@
   },
   "devDependencies": {
     "@yao-pkg/pkg": "^6.18.2",
-    "esbuild": "^0.27.3"
+    "esbuild": "^0.27.3",
+    "into-stream": "6.0.0"
+  },
+  "overrides": {
+    "@yao-pkg/pkg": {
+      "into-stream": "6.0.0"
+    }
   }
 }

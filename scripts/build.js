@@ -51,10 +51,10 @@ const targets = [
   'node18-macos-arm64'
 ].join(',')
 
-// pkg outputs: hole-linux, hole-linux-arm64, hole-win.exe, hole-macos, hole-macos-arm64
-// (x64 targets use the short platform name without the arch suffix)
+// pkg emits arch-qualified names (e.g. hole-linux-x64); older pkg used hole-linux → rename below keeps CI compatible.
+const pkgCli = path.join(root, 'node_modules', '@yao-pkg', 'pkg', 'lib-es5', 'bin.js')
 run(
-  `npx @yao-pkg/pkg dist/bundle.cjs` +
+  `node "${pkgCli}" dist/bundle.cjs` +
   ` --targets ${targets}` +
   ` --output dist/hole` +
   ` --compress Brotli`

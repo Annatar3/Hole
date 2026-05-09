@@ -17,4 +17,4 @@ RUN chmod +x /usr/local/bin/hole
 # Expose SSH (used only inside container)
 EXPOSE 22
 
-CMD service ssh start && hole agent --name docker-host
+CMD service ssh start && hole up --name docker-host

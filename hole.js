@@ -1,30 +1,36 @@
 #!/usr/bin/env node
 /**
- * Hole — P2P SSH tunnel via HyperDHT. No port forwarding required.
+ * Hole — P2P service access via HyperDHT. No port forwarding required.
  */
 import { parseArgs, die } from './lib/utils.js'
 import { addDevice, removeDevice, listDevices, holeDir, keypairPath, loadRegistry } from './lib/registry.js'
 import { aclAdd, aclRemove, aclList } from './lib/acl.js'
 import { existsSync } from 'fs'
 
-const [,, cmd, ...rest] = process.argv
+const COMMAND_ALIASES = {
+  up: 'agent',
+  tunnel: 'client'
+}
+
+const [,, rawCmd, ...rest] = process.argv
+const cmd = COMMAND_ALIASES[rawCmd] ?? rawCmd
 const { flags, positional } = parseArgs(rest)
 
 // ---------------------------------------------------------------------------
 // Help
 // ---------------------------------------------------------------------------
 const USAGE = `
-Hole — P2P SSH tunnel over HyperDHT. No port forwarding. No VPN.
+Hole — P2P service access over HyperDHT. No port forwarding. No VPN.
 
 Usage:
-  hole agent                   Start the tunnel agent on this host
-  hole ssh <target> [user]     SSH into a remote agent (tunnel + ssh in one command)
+  hole up                      Announce this machine's services on HyperDHT
+  hole ssh <target> [user]     SSH over a Holepunch tunnel
   hole exec <target> <user>    Run a single command on a remote host (tunnel + ssh -c)
   hole copy <src> <dest>       Copy files to/from a remote host via scp
-  hole ping <target>           Check if a remote agent is reachable (DHT latency)
-  hole client <target> [svc]   Open a local tunnel port (manual/scripting use)
+  hole ping <target>           Check if a remote service is reachable (DHT latency)
+  hole tunnel <target> [svc]   Open a local port to a remote service
   hole relay                   Start a relay node (for CGNAT / mobile hotspot)
-  hole install-service         Install agent as a system service (auto-start on boot)
+  hole install-service         Install "hole up" as a system service
   hole uninstall-service       Remove the system service
   hole completion              Generate shell completion script (bash)
 
@@ -41,8 +47,8 @@ Usage:
 
   hole doctor                  Run network diagnostics (TCP, UDP, HyperDHT)
 
-Options for agent:
-  --name    <name>             Register this agent with a friendly name
+Options for up:
+  --name    <name>             Register this machine with a friendly name
   --relay   <host:port>        Use a custom relay node
   --port    <n>                SSH port on this host (default: 22)
   --forward <svc:port>         Add a named forward, e.g. --forward rdp:3389
@@ -77,7 +83,7 @@ Options for list:
   --tag     <label>            Filter by tag
   --ping                       Check live latency for each device
 
-Options for client:
+Options for tunnel:
   --port    <n>                Local proxy port (default: 2222)
   --relay   <host:port>        Use a custom relay node
 
@@ -89,12 +95,14 @@ Options for relay:
   --port    <n>                UDP port to listen on (default: 49737)
 
 Options for install-service:
-  --name    <name>             Device name to pass to agent
-  --relay   <host:port>        Relay to pass to agent
+  --name    <name>             Device name to pass to "hole up"
+  --relay   <host:port>        Relay to pass to "hole up"
+  --port    <n>                SSH port to pass to "hole up"
+  --forward <svc:port>         Forward to pass to "hole up" (repeatable)
 
 Examples:
-  # Register an agent, then use it:
-  hole agent --name my-server              # on the server
+  # Announce a machine, then use it:
+  hole up --name my-server                 # on the remote machine
   hole add my-server <printed-key>         # on your laptop
   hole ssh my-server alice                 # SSH in
   hole exec my-server alice -- uptime      # run one command
@@ -103,13 +111,13 @@ Examples:
   hole ping my-server                      # check if it's up
 
   # Multiple services on one host:
-  hole agent --name my-pc --forward rdp:3389 --forward web:3000
-  hole client my-pc rdp   # opens local port for RDP client
-  hole client my-pc web   # opens local port for browser
+  hole up --name my-pc --forward rdp:3389 --forward web:3000
+  hole tunnel my-pc rdp   # opens local port for RDP
+  hole tunnel my-pc web   # opens local port for browser
 
   # Lock down who can connect:
   hole acl add laptop <my-laptop-public-key>
-  hole agent --name my-pc     # now only 'laptop' can connect
+  hole up --name my-pc        # now only 'laptop' can connect
 
   # Install as a service (auto-start on boot):
   hole install-service --name my-pc
@@ -120,6 +128,11 @@ Examples:
 
 Config: ${holeDir()}
 `.trim()
+
+if (flags.help && positional.length === 0) {
+  console.log(USAGE)
+  process.exit(0)
+}
 
 // ---------------------------------------------------------------------------
 // Parse --forward flags → array of { name, host, port }
@@ -148,7 +161,7 @@ function parseForwards (rawForwards) {
 async function main () {
   switch (cmd) {
 
-    // ── agent ──────────────────────────────────────────────────────────────
+    // ── up / agent ─────────────────────────────────────────────────────────
     case 'agent': {
       const { run } = await import('./lib/agent.js')
       await run({
@@ -253,11 +266,11 @@ async function main () {
       break
     }
 
-    // ── client ─────────────────────────────────────────────────────────────
+    // ── tunnel / client ────────────────────────────────────────────────────
     case 'client': {
       const target  = positional[0]
       const service = positional[1] ?? null   // optional: ssh | rdp | web | ...
-      if (!target) die('Usage: hole client <name|key> [service] [--port 2222] [--relay host:port]')
+      if (!target) die('Usage: hole tunnel <name|key> [service] [--port 2222] [--relay host:port]')
       const { run } = await import('./lib/client.js')
       const devices = loadRegistry()
       const dev     = /^[0-9a-f]{64}$/i.test(target) ? null : devices[target]
@@ -293,6 +306,10 @@ async function main () {
       const agentArgs = []
       if (flags.name)  agentArgs.push('--name',  flags.name)
       if (flags.relay) agentArgs.push('--relay', flags.relay)
+      if (flags.port)  agentArgs.push('--port',  flags.port)
+      if (flags.forward) {
+        for (const forward of [].concat(flags.forward)) agentArgs.push('--forward', forward)
+      }
       install(agentArgs)
       break
     }
@@ -312,10 +329,10 @@ _hole_completion() {
   COMPREPLY=()
   cur="\${COMP_WORDS[COMP_CWORD]}"
   prev="\${COMP_WORDS[COMP_CWORD-1]}"
-  opts="agent ssh exec copy ping client relay install-service uninstall-service list add remove status audit dashboard acl doctor help completion"
+  opts="up ssh exec copy ping tunnel relay install-service uninstall-service list add remove status audit dashboard acl doctor help completion"
 
   case "\${prev}" in
-    ssh|exec|copy|ping|client|remove|add)
+    ssh|exec|copy|ping|tunnel|client|remove|add)
       local devices=$(hole list | awk 'NR>2 {print $1}' | grep -v '^─' | grep -v '^$')
       COMPREPLY=( $(compgen -W "\${devices}" -- \${cur}) )
       return 0
@@ -463,7 +480,7 @@ complete -F _hole_completion hole
       break
 
     default:
-      console.error(`Unknown command: ${cmd}\nRun 'hole help' for usage.`)
+      console.error(`Unknown command: ${rawCmd}\nRun 'hole help' for usage.`)
       process.exit(1)
   }
 }

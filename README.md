@@ -1,13 +1,13 @@
-# Hole — P2P SSH over HyperDHT
+# Hole — P2P service access over HyperDHT
 
 **Zero port-forwarding. Zero VPN. Zero accounts.**
 
-Hole connects any two machines over the [Holepunch / HyperDHT](https://holepunch.to) stack. Each agent announces itself on a distributed hash table; clients punch through NAT and connect directly — or via a relay when both sides are behind strict CGNAT.
+Hole connects machines over the [Holepunch / HyperDHT](https://holepunch.to) stack. Run one binary to announce SSH, RDP, HTTP, or any TCP service; connect from another machine by name without port-forwarding, VPN setup, or accounts.
 
 ```
-client ──[HyperDHT]── agent
-           (or)
-client ──[relay]──── agent
+hole ssh/tunnel ──[HyperDHT]── hole up
+                    (or)
+hole ssh/tunnel ──[relay]──── hole up
 ```
 
 ---
@@ -19,10 +19,10 @@ client ──[relay]──── agent
 | `hole ssh` | One-command interactive SSH through the tunnel |
 | `hole exec` | Run a command remotely, get output, exit |
 | `hole copy` | `scp`-style file transfer over P2P |
-| `hole client` | Expose any TCP service (RDP, HTTP, DB…) locally |
+| `hole tunnel` | Expose any TCP service (RDP, HTTP, DB…) locally |
 | `hole dashboard` | Browser fleet UI — terminals, tunnels, exec, files, ACLs |
 | `hole relay` | Self-hosted relay for CGNAT / mobile networks |
-| `hole agent` | Daemon that announces the machine on the DHT |
+| `hole up` | Announce this machine's services on HyperDHT |
 
 State lives in `~/.hole/` — keypair, device registry, ACL, audit log.
 
@@ -34,6 +34,7 @@ State lives in `~/.hole/` — keypair, device registry, ACL, audit log.
 
 ```bash
 git clone https://github.com/Annatar3/Hole && cd Hole
+nvm use            # optional: uses .nvmrc (Node 22) for dev / packaging
 npm install
 npm link          # puts `hole` on your PATH
 hole help
@@ -54,14 +55,16 @@ To build your own binaries:
 npm run build     # outputs to dist/
 ```
 
+**Release builds** need **Node 22+** (matching GitHub Actions and `.nvmrc`). Older Node can still run the CLI from source; `npm install` runs a small **postinstall** script so `@yao-pkg/pkg` always resolves a CommonJS-compatible `into-stream` when packaging.
+
 ---
 
 ## Quick start
 
-### Step 1 — start the agent (on the remote machine)
+### Step 1 — bring the remote machine online
 
 ```bash
-./hole agent --name my-server
+./hole up --name my-server
 # Key : 9320641058af2f76abd1...  ← copy this
 ```
 
@@ -81,7 +84,7 @@ hole add my-server 9320641058af2f76abd1... \
 hole ssh my-server
 ```
 
-That's it. Hole opens the P2P tunnel and drops you into an SSH session. The tunnel closes when you exit.
+That's it. Hole opens the HyperDHT/Holepunch tunnel and drops you into an SSH session. The tunnel closes when you exit.
 
 ---
 
@@ -93,10 +96,10 @@ When direct hole-punching fails, run a relay on any VPS with a public IP:
 # On the VPS — open UDP 49737 inbound in your firewall
 ./hole relay
 
-# Agent side
-./hole agent --name my-server --relay <vps-ip>:49737
+# Remote machine
+./hole up --name my-server --relay <vps-ip>:49737
 
-# Client side
+# Laptop
 hole add my-server <key> --relay <vps-ip>:49737
 hole ssh my-server
 ```
@@ -107,23 +110,23 @@ Traffic is still end-to-end encrypted; the relay only shuffles UDP packets.
 
 ## Multiple services per host
 
-Each forwarded service gets its own key derived from the agent's master key:
+Each forwarded service gets its own key derived from the machine's master key:
 
 ```bash
-# Agent
-./hole agent --name my-pc \
+# Remote machine
+./hole up --name my-pc \
   --forward rdp:3389 \
   --forward web:127.0.0.1:3000
 
-# Client — SSH works as before
+# Laptop — SSH works as before
 hole ssh my-pc
 
 # Open a local port for RDP
-hole client my-pc rdp
+hole tunnel my-pc rdp
 # → connect your RDP client to localhost:<printed-port>
 
 # Open a local port for the web service
-hole client my-pc web --port 8080
+hole tunnel my-pc web --port 8080
 ```
 
 ---
@@ -157,7 +160,7 @@ The token is generated once and stored in `~/.hole/dashboard-token`. It's embedd
 By default any client that knows a service key can connect. To restrict access:
 
 ```bash
-# On the agent host
+# On the machine running `hole up`
 hole acl add laptop <64-char-client-public-key>
 hole acl list
 hole acl remove laptop
@@ -172,7 +175,7 @@ An empty ACL means open mode — any key is accepted.
 ### Linux (systemd user service)
 
 ```bash
-# On the agent host
+# On the machine you want to keep online
 hole install-service --name my-server
 systemctl --user status hole-agent
 
@@ -180,7 +183,7 @@ systemctl --user status hole-agent
 hole uninstall-service
 ```
 
-Creates `~/.config/systemd/user/hole-agent.service`. Starts on login, restarts on failure.
+Creates `~/.config/systemd/user/hole-agent.service`. It runs `hole up`, starts on login, and restarts on failure.
 
 ### Windows (Task Scheduler)
 
@@ -208,11 +211,11 @@ If `doctor` passes and `ping` returns a latency, everything is working. If `ping
 
 | Command | What it does |
 |---|---|
-| `hole agent [--name N] [--relay host:port] [--forward svc:port]` | Start the agent daemon |
+| `hole up [--name N] [--relay host:port] [--forward svc:port]` | Announce this machine's services on HyperDHT |
 | `hole ssh <device> [user] [-- extra-ssh-args]` | Open an interactive SSH session |
 | `hole exec <device> <user> -- <cmd>` | Run a command, capture output, exit |
 | `hole copy <src> <dest> [user]` | Copy files (`device:/path` for remote side) |
-| `hole client <device> [service] [--port N]` | Expose a TCP service locally |
+| `hole tunnel <device> [service] [--port N]` | Expose a TCP service locally |
 | `hole relay [--port N]` | Run a relay server |
 | `hole dashboard` | Start the web dashboard |
 | `hole add <name> <key> [--user U] [--relay R] [--identity I]` | Register a device |
@@ -220,8 +223,10 @@ If `doctor` passes and `ping` returns a latency, everything is working. If `ping
 | `hole list` | List registered devices |
 | `hole ping <device>` | Check reachability |
 | `hole status <device>` | Detailed device status |
-| `hole install-service [--name N]` | Install agent as a system service |
+| `hole install-service [--name N]` | Install `hole up` as a system service |
 | `hole uninstall-service` | Remove the system service |
-| `hole acl list \| add \| remove` | Manage connection ACL on the agent |
+| `hole acl list \| add \| remove` | Manage connection ACL on this machine |
 | `hole audit [--tail N]` | View audit log |
 | `hole doctor` | Environment health check |
+
+Legacy `hole agent` and `hole client` commands still work as aliases for `hole up` and `hole tunnel`.
