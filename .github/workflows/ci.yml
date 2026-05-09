@@ -50,22 +50,23 @@ jobs:
         continue-on-error: true
         shell: bash
         run: |
-          set -eo pipefail
+          set -euo pipefail
           mkdir -p test-results
           tap=test-results/unit.tap
-          echo "::group::Unit tests"
-          node --test \
-            --test-reporter tap \
-            --test-reporter-destination="${tap}" \
-            test/unit/*.test.js 2>&1 | tee test-results/unit-output.txt
-          exit "${PIPESTATUS[0]}"
+          echo "::group::Unit tests — TAP → ${tap}"
+          set +e
+          node --test --test-reporter tap test/unit/*.test.js 2>&1 | tee "${tap}"
+          code=${PIPESTATUS[0]}
+          set -e
+          echo "::endgroup::"
+          exit "${code}"
 
       - name: Upload unit test log
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: unit-tests
-          path: test-results/unit-output.txt
+          path: test-results/unit.tap
           retention-days: 7
           if-no-files-found: ignore
 
@@ -112,9 +113,9 @@ jobs:
           elif [ "${OUTCOME}" != "success" ]; then
             echo "⚠️ **No TAP file** — excerpt from console capture:" >> "${GITHUB_STEP_SUMMARY}"
             echo "" >> "${GITHUB_STEP_SUMMARY}"
-            if [[ -f test-results/unit-output.txt ]]; then
+            if [[ -f test-results/unit.tap ]]; then
               echo '```' >> "${GITHUB_STEP_SUMMARY}"
-              tail -40 test-results/unit-output.txt >> "${GITHUB_STEP_SUMMARY}"
+              tail -40 test-results/unit.tap >> "${GITHUB_STEP_SUMMARY}"
               echo '```' >> "${GITHUB_STEP_SUMMARY}"
             fi
             echo "" >> "${GITHUB_STEP_SUMMARY}"
@@ -127,21 +128,22 @@ jobs:
         continue-on-error: true
         shell: bash
         run: |
-          set -eo pipefail
+          set -euo pipefail
           tap=test-results/cli.tap
-          echo "::group::CLI smoke tests"
-          node --test \
-            --test-reporter tap \
-            --test-reporter-destination="${tap}" \
-            test/cli/*.test.js 2>&1 | tee test-results/cli-output.txt
-          exit "${PIPESTATUS[0]}"
+          echo "::group::CLI smoke tests — TAP → ${tap}"
+          set +e
+          node --test --test-reporter tap test/cli/*.test.js 2>&1 | tee "${tap}"
+          code=${PIPESTATUS[0]}
+          set -e
+          echo "::endgroup::"
+          exit "${code}"
 
       - name: Upload CLI test log
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: cli-tests
-          path: test-results/cli-output.txt
+          path: test-results/cli.tap
           retention-days: 7
           if-no-files-found: ignore
 
@@ -185,9 +187,9 @@ jobs:
             echo '```' >> "${GITHUB_STEP_SUMMARY}"
             echo "</details>" >> "${GITHUB_STEP_SUMMARY}"
             echo "" >> "${GITHUB_STEP_SUMMARY}"
-          elif [ "${OUTCOME}" != "success" ] && [[ -f test-results/cli-output.txt ]]; then
+          elif [ "${OUTCOME}" != "success" ] && [[ -f test-results/cli.tap ]]; then
             echo '```' >> "${GITHUB_STEP_SUMMARY}"
-            tail -40 test-results/cli-output.txt >> "${GITHUB_STEP_SUMMARY}"
+            tail -40 test-results/cli.tap >> "${GITHUB_STEP_SUMMARY}"
             echo '```' >> "${GITHUB_STEP_SUMMARY}"
             echo "" >> "${GITHUB_STEP_SUMMARY}"
           fi
@@ -199,21 +201,24 @@ jobs:
         continue-on-error: true
         shell: bash
         run: |
-          set -eo pipefail
+          set -euo pipefail
           tap=test-results/e2e.tap
-          echo "::group::E2E tests"
+          echo "::group::E2E tests — TAP → ${tap}"
+          set +e
           node --test --test-concurrency=1 \
             --test-reporter tap \
-            --test-reporter-destination="${tap}" \
-            test/e2e/*.test.js 2>&1 | tee test-results/e2e-output.txt
-          exit "${PIPESTATUS[0]}"
+            test/e2e/*.test.js 2>&1 | tee "${tap}"
+          code=${PIPESTATUS[0]}
+          set -e
+          echo "::endgroup::"
+          exit "${code}"
 
       - name: Upload E2E test log
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: e2e-tests
-          path: test-results/e2e-output.txt
+          path: test-results/e2e.tap
           retention-days: 7
           if-no-files-found: ignore
 
@@ -257,9 +262,9 @@ jobs:
             echo '```' >> "${GITHUB_STEP_SUMMARY}"
             echo "</details>" >> "${GITHUB_STEP_SUMMARY}"
             echo "" >> "${GITHUB_STEP_SUMMARY}"
-          elif [ "${OUTCOME}" != "success" ] && [[ -f test-results/e2e-output.txt ]]; then
+          elif [ "${OUTCOME}" != "success" ] && [[ -f test-results/e2e.tap ]]; then
             echo '```' >> "${GITHUB_STEP_SUMMARY}"
-            head -80 test-results/e2e-output.txt >> "${GITHUB_STEP_SUMMARY}"
+            head -80 test-results/e2e.tap >> "${GITHUB_STEP_SUMMARY}"
             echo '```' >> "${GITHUB_STEP_SUMMARY}"
             echo "" >> "${GITHUB_STEP_SUMMARY}"
           fi
@@ -271,10 +276,14 @@ jobs:
         continue-on-error: true
         shell: bash
         run: |
-          set -eo pipefail
+          set -euo pipefail
           echo "::group::npm run build"
+          set +e
           npm run build 2>&1 | tee test-results/build-output.txt
-          exit "${PIPESTATUS[0]}"
+          code=${PIPESTATUS[0]}
+          set -e
+          echo "::endgroup::"
+          exit "${code}"
 
       - name: Upload build log
         if: always()
@@ -316,15 +325,20 @@ jobs:
         continue-on-error: true
         shell: bash
         run: |
-          set -eo pipefail
+          set -euo pipefail
           BIN="dist/hole-linux-x64"
           echo "::group::dist/hole-linux-x64 help"
+          set +e
           if [[ ! -x "${BIN}" ]]; then
             echo "Binary missing — build may have failed." | tee test-results/pkg-smoke-output.txt
-            exit 1
+            code=1
+          else
+            "${BIN}" help 2>&1 | tee test-results/pkg-smoke-output.txt
+            code=${PIPESTATUS[0]}
           fi
-          "${BIN}" help 2>&1 | tee test-results/pkg-smoke-output.txt
-          exit "${PIPESTATUS[0]}"
+          set -e
+          echo "::endgroup::"
+          exit "${code}"
 
       - name: Upload packaged binary smoke log
         if: always()
