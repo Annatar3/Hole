@@ -15,6 +15,7 @@
     "agent": "node hole.js agent",
     "client": "node hole.js client",
     "relay": "node hole.js relay",
+    "test": "node scripts/smoke-test.js",
     "build": "node scripts/build.js"
   },
   "pkg": {

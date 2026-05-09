@@ -27,6 +27,9 @@ jobs:
       - name: Build binaries
         run: npm run build
 
+      - name: Smoke packaged Linux binary
+        run: dist/hole-linux-x64 help
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:

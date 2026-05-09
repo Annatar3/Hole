@@ -22,6 +22,8 @@ hole ssh/tunnel ──[relay]──── hole up
 | `hole exec` | Run a command remotely, get output, exit |
 | `hole copy` | `scp`-style file transfer over P2P |
 | `hole tunnel` | Expose any TCP service (RDP, HTTP, DB…) locally |
+| `hole key` | Show this machine's Hole public key for pairing/ACL setup |
+| `hole services` | Inspect registered service keys |
 | `hole dashboard` | Browser fleet UI — terminals, tunnels, exec, files, ACLs |
 | `hole relay` | Self-hosted relay for CGNAT / mobile networks |
 | `hole up` | Announce this machine's services on HyperDHT |
@@ -200,12 +202,14 @@ hole.exe uninstall-service
 ## Diagnostics
 
 ```bash
-hole doctor           # checks outbound TCP 443, UDP bind, DHT bootstrap
-hole ping my-server   # latency + reachability
-hole audit --tail 20  # recent connection events
+hole doctor              # config, local SSH target, outbound TCP/UDP, DHT bootstrap
+hole key                 # this machine's Hole public key
+hole services my-server  # registered service keys for one device
+hole ping my-server      # latency + reachability with relay/NAT hints
+hole audit --tail 20     # recent connection events
 ```
 
-If `doctor` passes and `ping` returns a latency, everything is working. If `ping` shows the device as offline, try adding `--relay <host>:<port>` to both sides.
+If `doctor` passes and `ping` returns a latency, everything is working. If `ping` shows the device as offline, read the printed hint first; strict NAT/CGNAT usually means adding `--relay <host>:<port>` to both sides.
 
 ---
 
@@ -223,6 +227,8 @@ If `doctor` passes and `ping` returns a latency, everything is working. If `ping
 | `hole add <name> <key> [--user U] [--relay R] [--identity I]` | Register a device |
 | `hole remove <name>` | Remove a device |
 | `hole list` | List registered devices |
+| `hole key [--raw]` | Show this machine's Hole public key |
+| `hole services [device]` | Inspect registered service keys |
 | `hole ping <device>` | Check reachability |
 | `hole status <device>` | Detailed device status |
 | `hole install-service [--name N]` | Install `hole up` as a system service |

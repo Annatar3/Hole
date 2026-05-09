@@ -38,6 +38,8 @@ Usage:
   hole add <name> <key>        Add a device to the registry
   hole remove <name>           Remove a device from the registry
   hole status                  Show config paths and registry summary
+  hole key                     Show this machine's Hole public key
+  hole services [device]       Show registered service keys
   hole audit                   Show recent connection audit log
   hole dashboard               Open the web fleet dashboard (localhost:4321)
 
@@ -83,6 +85,9 @@ Options for list:
   --tag     <label>            Filter by tag
   --ping                       Check live latency for each device
 
+Options for key:
+  --raw                         Print only the 64-char public key
+
 Options for tunnel:
   --port    <n>                Local proxy port (default: 2222)
   --relay   <host:port>        Use a custom relay node
@@ -109,6 +114,8 @@ Examples:
   hole copy file.txt my-server:/tmp/ alice # upload a file
   hole copy my-server:/var/log/app.log . alice  # download a file
   hole ping my-server                      # check if it's up
+  hole key                                 # show this machine's Hole public key
+  hole services my-server                  # inspect registered service keys
 
   # Multiple services on one host:
   hole up --name my-pc --forward rdp:3389 --forward web:3000
@@ -153,6 +160,66 @@ function parseForwards (rawForwards) {
     }
     die(`Invalid --forward value "${raw}". Use: name:port or name:host:port`)
   })
+}
+
+function serviceNames (device) {
+  return Object.keys(device.services ?? {})
+}
+
+function printServiceRow (name, device) {
+  const svcs = serviceNames(device)
+  const host = device.host ?? name
+  const key = (device.key ?? '').slice(0, 16) + '...'
+  console.log(`${name.padEnd(20)} ${key.padEnd(18)} ${host.slice(0, 18).padEnd(20)} ${svcs.length ? svcs.join(', ') : '—'}`)
+}
+
+function printServices ({ target = null }) {
+  const reg = loadRegistry()
+  if (target) {
+    if (/^[0-9a-f]{64}$/i.test(target)) {
+      console.log('\n=== Hole Services ===')
+      console.log(`Target key : ${target}`)
+      console.log('Source     : raw key (no local service map)')
+      console.log('\nAdd it with a name to track service keys: hole add <name> <key>\n')
+      return
+    }
+
+    const device = reg[target]
+    if (!device) die(`Unknown device "${target}". Add it with: hole add ${target} <64-char-key>`)
+    console.log('\n=== Hole Services ===')
+    console.log(`Device : ${target}`)
+    console.log(`Host   : ${device.host ?? target}`)
+    console.log(`Key    : ${device.key}`)
+    if (device.relay) console.log(`Relay  : ${device.relay}`)
+    console.log('')
+
+    const services = Object.entries(device.services ?? {})
+    if (!services.length) {
+      console.log('No service keys registered.')
+      console.log('Run `hole up --forward name:port` on the remote machine and register the printed service key.')
+      console.log('')
+      return
+    }
+
+    console.log(`${'SERVICE'.padEnd(16)} KEY`)
+    console.log('─'.repeat(82))
+    for (const [service, key] of services) {
+      console.log(`${service.padEnd(16)} ${key}`)
+    }
+    console.log('')
+    return
+  }
+
+  const entries = Object.entries(reg)
+  if (!entries.length) {
+    console.log('No devices registered.\nAdd one with: hole add <name> <64-char-key>')
+    return
+  }
+
+  console.log(`\n${'NAME'.padEnd(20)} ${'KEY (16)'.padEnd(18)} ${'HOST'.padEnd(20)} SERVICES`)
+  console.log('─'.repeat(84))
+  for (const [name, device] of entries) printServiceRow(name, device)
+  console.log('')
 }
 
 // ---------------------------------------------------------------------------
@@ -300,6 +367,32 @@ async function main () {
       break
     }
 
+    // ── key / whoami ───────────────────────────────────────────────────────
+    case 'key':
+    case 'whoami': {
+      const { loadOrCreateKeyPair, publicKeyHex } = await import('./lib/identity.js')
+      const keyPair = loadOrCreateKeyPair()
+      const key = publicKeyHex(keyPair)
+      if (flags.raw) {
+        console.log(key)
+        break
+      }
+      console.log('\n=== Hole Key ===')
+      console.log(`Public key : ${key}`)
+      console.log(`Keypair    : ${keypairPath()}`)
+      console.log('')
+      console.log('Share with another machine:')
+      console.log('  hole add <name> ' + key)
+      console.log('')
+      break
+    }
+
+    // ── services ───────────────────────────────────────────────────────────
+    case 'services': {
+      printServices({ target: positional[0] ?? null })
+      break
+    }
+
     // ── install-service ────────────────────────────────────────────────────
     case 'install-service': {
       const { install } = await import('./lib/installer.js')
@@ -329,10 +422,10 @@ _hole_completion() {
   COMPREPLY=()
   cur="\${COMP_WORDS[COMP_CWORD]}"
   prev="\${COMP_WORDS[COMP_CWORD-1]}"
-  opts="up ssh exec copy ping tunnel relay install-service uninstall-service list add remove status audit dashboard acl doctor help completion"
+  opts="up ssh exec copy ping tunnel relay install-service uninstall-service list add remove status key whoami services audit dashboard acl doctor help completion"
 
   case "\${prev}" in
-    ssh|exec|copy|ping|tunnel|client|remove|add)
+    ssh|exec|copy|ping|tunnel|client|services|remove|add)
       local devices=$(hole list | awk 'NR>2 {print $1}' | grep -v '^─' | grep -v '^$')
       COMPREPLY=( $(compgen -W "\${devices}" -- \${cur}) )
       return 0
