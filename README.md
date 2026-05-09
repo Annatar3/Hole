@@ -63,6 +63,21 @@ npm run build     # outputs to dist/
 
 ---
 
+## Testing
+
+Tests run entirely on the local machine / CI runner. They do not use GCP instances or external SSH hosts.
+
+```bash
+npm run test:unit  # pure helpers: args, registry, identity
+npm run test:cli   # CLI command smoke tests with isolated HOME
+npm run test:e2e   # starts local relay, hole up, hole tunnel, and echo server
+npm test           # all of the above
+```
+
+The local E2E test wraps every spawned process and cleans it up after the test.
+
+---
+
 ## Quick start
 
 ### Step 1 — bring the remote machine online

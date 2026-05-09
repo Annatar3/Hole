@@ -15,7 +15,10 @@
     "agent": "node hole.js agent",
     "client": "node hole.js client",
     "relay": "node hole.js relay",
-    "test": "node scripts/smoke-test.js",
+    "test:unit": "node --test test/unit/*.test.js",
+    "test:cli": "node --test test/cli/*.test.js",
+    "test:e2e": "node --test test/e2e/*.test.js",
+    "test": "npm run test:unit && npm run test:cli && npm run test:e2e",
     "build": "node scripts/build.js"
   },
   "pkg": {

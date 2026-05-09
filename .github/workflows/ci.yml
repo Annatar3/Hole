@@ -22,8 +22,14 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Run smoke tests
-        run: npm test
+      - name: Run unit tests
+        run: npm run test:unit
+
+      - name: Run CLI smoke tests
+        run: npm run test:cli
+
+      - name: Run local E2E tests
+        run: npm run test:e2e
 
       - name: Build binaries
         run: npm run build
