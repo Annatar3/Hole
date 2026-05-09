@@ -1,6 +1,6 @@
 {
   "name": "hole",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "description": "P2P service access via HyperDHT — no port forwarding, no VPN",
   "type": "module",
   "main": "hole.js",
@@ -17,7 +17,7 @@
     "relay": "node hole.js relay",
     "test:unit": "node --test test/unit/*.test.js",
     "test:cli": "node --test test/cli/*.test.js",
-    "test:e2e": "node --test test/e2e/*.test.js",
+    "test:e2e": "node --test --test-concurrency=1 test/e2e/*.test.js",
     "test": "npm run test:unit && npm run test:cli && npm run test:e2e",
     "build": "node scripts/build.js"
   },
@@ -43,7 +43,8 @@
   "devDependencies": {
     "@yao-pkg/pkg": "^6.18.2",
     "esbuild": "^0.27.3",
-    "into-stream": "6.0.0"
+    "into-stream": "6.0.0",
+    "ssh2": "^1.17.0"
   },
   "overrides": {
     "@yao-pkg/pkg": {

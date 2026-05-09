@@ -9,6 +9,7 @@ on:
 jobs:
   smoke:
     runs-on: ubuntu-latest
+    timeout-minutes: 25
 
     steps:
       - name: Checkout
@@ -18,21 +19,373 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "22"
+          cache: npm
 
       - name: Install dependencies
         run: npm ci
 
-      - name: Run unit tests
-        run: npm run test:unit
+      - name: Job summary header
+        run: |
+          {
+            echo "## CI — Hole"
+            echo ""
+            echo "| | |"
+            echo "| --- | --- |"
+            echo "| Workflow run | [\`#${GITHUB_RUN_NUMBER}\`](${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}) |"
+            echo "| Ref | \`${GITHUB_REF_NAME}\` — [\`${GITHUB_SHA:0:7}\`](${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/commit/${GITHUB_SHA}) |"
+            echo "| Event | \`${GITHUB_EVENT_NAME}\` |"
+            echo "| Node | 22 |"
+            echo ""
+            echo "---"
+            echo ""
+          } >> "${GITHUB_STEP_SUMMARY}"
 
-      - name: Run CLI smoke tests
-        run: npm run test:cli
+      - name: Prepare test output dir
+        run: mkdir -p test-results
 
-      - name: Run local E2E tests
-        run: npm run test:e2e
+      # ── Unit ───────────────────────────────────────────────────────────────
+
+      - name: "Run tests: unit"
+        id: run_unit_tests
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -eo pipefail
+          mkdir -p test-results
+          tap=test-results/unit.tap
+          echo "::group::Unit tests"
+          node --test \
+            --test-reporter tap \
+            --test-reporter-destination="${tap}" \
+            test/unit/*.test.js 2>&1 | tee test-results/unit-output.txt
+          exit "${PIPESTATUS[0]}"
+
+      - name: Upload unit test log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: unit-tests
+          path: test-results/unit-output.txt
+          retention-days: 7
+          if-no-files-found: ignore
+
+      - name: Unit test summary
+        if: always()
+        shell: bash
+        env:
+          OUTCOME: ${{ steps.run_unit_tests.outcome }}
+        run: |
+          echo "## 🧪 Unit tests" >> "${GITHUB_STEP_SUMMARY}"
+          echo "" >> "${GITHUB_STEP_SUMMARY}"
+          echo "**Runner:** \`node --test test/unit/\*.test.js\`" >> "${GITHUB_STEP_SUMMARY}"
+          echo "" >> "${GITHUB_STEP_SUMMARY}"
+
+          tap="test-results/unit.tap"
+
+          if [ "${OUTCOME}" = "success" ]; then
+            echo "✅ **Unit tests passed**" >> "${GITHUB_STEP_SUMMARY}"
+          else
+            echo "❌ **Unit tests failed**" >> "${GITHUB_STEP_SUMMARY}"
+          fi
+          echo "" >> "${GITHUB_STEP_SUMMARY}"
+
+          if [[ -f "${tap}" ]]; then
+            echo "| Metric | Count |" >> "${GITHUB_STEP_SUMMARY}"
+            echo "| -------- | ------- |" >> "${GITHUB_STEP_SUMMARY}"
+
+            grep -E '^# (tests|pass|fail|skipped|cancelled)' "${tap}" 2>/dev/null | while read -r line; do
+              body="${line#\# }"
+              key="${body%% *}"
+              val="${body#"${key}"}"
+              val="${val#"${val%%[![:space:]]*}"}"
+              echo "| ${key} | ${val} |" >> "${GITHUB_STEP_SUMMARY}"
+            done || true
+            echo "" >> "${GITHUB_STEP_SUMMARY}"
+
+            echo "<details><summary>Full TAP (unit)</summary>" >> "${GITHUB_STEP_SUMMARY}"
+            echo "" >> "${GITHUB_STEP_SUMMARY}"
+            echo '```tap' >> "${GITHUB_STEP_SUMMARY}"
+            cat "${tap}" >> "${GITHUB_STEP_SUMMARY}"
+            echo '```' >> "${GITHUB_STEP_SUMMARY}"
+            echo "</details>" >> "${GITHUB_STEP_SUMMARY}"
+            echo "" >> "${GITHUB_STEP_SUMMARY}"
+          elif [ "${OUTCOME}" != "success" ]; then
+            echo "⚠️ **No TAP file** — excerpt from console capture:" >> "${GITHUB_STEP_SUMMARY}"
+            echo "" >> "${GITHUB_STEP_SUMMARY}"
+            if [[ -f test-results/unit-output.txt ]]; then
+              echo '```' >> "${GITHUB_STEP_SUMMARY}"
+              tail -40 test-results/unit-output.txt >> "${GITHUB_STEP_SUMMARY}"
+              echo '```' >> "${GITHUB_STEP_SUMMARY}"
+            fi
+            echo "" >> "${GITHUB_STEP_SUMMARY}"
+          fi
+
+      # ── CLI ─────────────────────────────────────────────────────────────────
+
+      - name: "Run tests: CLI smoke"
+        id: run_cli_tests
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -eo pipefail
+          tap=test-results/cli.tap
+          echo "::group::CLI smoke tests"
+          node --test \
+            --test-reporter tap \
+            --test-reporter-destination="${tap}" \
+            test/cli/*.test.js 2>&1 | tee test-results/cli-output.txt
+          exit "${PIPESTATUS[0]}"
+
+      - name: Upload CLI test log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cli-tests
+          path: test-results/cli-output.txt
+          retention-days: 7
+          if-no-files-found: ignore
+
+      - name: CLI test summary
+        if: always()
+        shell: bash
+        env:
+          OUTCOME: ${{ steps.run_cli_tests.outcome }}
+        run: |
+          echo "## 🧷 CLI smoke tests" >> "${GITHUB_STEP_SUMMARY}"
+          echo "" >> "${GITHUB_STEP_SUMMARY}"
+          echo "**Runner:** \`node --test test/cli/\*.test.js\`" >> "${GITHUB_STEP_SUMMARY}"
+          echo "" >> "${GITHUB_STEP_SUMMARY}"
+
+          tap="test-results/cli.tap"
+
+          if [ "${OUTCOME}" = "success" ]; then
+            echo "✅ **CLI smoke passed**" >> "${GITHUB_STEP_SUMMARY}"
+          else
+            echo "❌ **CLI smoke failed**" >> "${GITHUB_STEP_SUMMARY}"
+          fi
+          echo "" >> "${GITHUB_STEP_SUMMARY}"
+
+          if [[ -f "${tap}" ]]; then
+            echo "| Metric | Count |" >> "${GITHUB_STEP_SUMMARY}"
+            echo "| -------- | ------- |" >> "${GITHUB_STEP_SUMMARY}"
+
+            grep -E '^# (tests|pass|fail|skipped|cancelled)' "${tap}" 2>/dev/null | while read -r line; do
+              body="${line#\# }"
+              key="${body%% *}"
+              val="${body#"${key}"}"
+              val="${val#"${val%%[![:space:]]*}"}"
+              echo "| ${key} | ${val} |" >> "${GITHUB_STEP_SUMMARY}"
+            done || true
+            echo "" >> "${GITHUB_STEP_SUMMARY}"
+
+            echo "<details><summary>Full TAP (CLI)</summary>" >> "${GITHUB_STEP_SUMMARY}"
+            echo "" >> "${GITHUB_STEP_SUMMARY}"
+            echo '```tap' >> "${GITHUB_STEP_SUMMARY}"
+            cat "${tap}" >> "${GITHUB_STEP_SUMMARY}"
+            echo '```' >> "${GITHUB_STEP_SUMMARY}"
+            echo "</details>" >> "${GITHUB_STEP_SUMMARY}"
+            echo "" >> "${GITHUB_STEP_SUMMARY}"
+          elif [ "${OUTCOME}" != "success" ] && [[ -f test-results/cli-output.txt ]]; then
+            echo '```' >> "${GITHUB_STEP_SUMMARY}"
+            tail -40 test-results/cli-output.txt >> "${GITHUB_STEP_SUMMARY}"
+            echo '```' >> "${GITHUB_STEP_SUMMARY}"
+            echo "" >> "${GITHUB_STEP_SUMMARY}"
+          fi
+
+      # ── E2E ─────────────────────────────────────────────────────────────────
+
+      - name: "Run tests: E2E"
+        id: run_e2e_tests
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -eo pipefail
+          tap=test-results/e2e.tap
+          echo "::group::E2E tests"
+          node --test --test-concurrency=1 \
+            --test-reporter tap \
+            --test-reporter-destination="${tap}" \
+            test/e2e/*.test.js 2>&1 | tee test-results/e2e-output.txt
+          exit "${PIPESTATUS[0]}"
+
+      - name: Upload E2E test log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-tests
+          path: test-results/e2e-output.txt
+          retention-days: 7
+          if-no-files-found: ignore
+
+      - name: E2E test summary
+        if: always()
+        shell: bash
+        env:
+          OUTCOME: ${{ steps.run_e2e_tests.outcome }}
+        run: |
+          echo "## 🔗 E2E tests" >> "${GITHUB_STEP_SUMMARY}"
+          echo "" >> "${GITHUB_STEP_SUMMARY}"
+          echo "**Runner:** \`node --test --test-concurrency=1 test/e2e/\*.test.js\` — SSH cases skip without \`ssh\`/\`scp\`." >> "${GITHUB_STEP_SUMMARY}"
+          echo "" >> "${GITHUB_STEP_SUMMARY}"
+
+          tap="test-results/e2e.tap"
+
+          if [ "${OUTCOME}" = "success" ]; then
+            echo "✅ **E2E tests passed**" >> "${GITHUB_STEP_SUMMARY}"
+          else
+            echo "❌ **E2E tests failed**" >> "${GITHUB_STEP_SUMMARY}"
+          fi
+          echo "" >> "${GITHUB_STEP_SUMMARY}"
+
+          if [[ -f "${tap}" ]]; then
+            echo "| Metric | Count |" >> "${GITHUB_STEP_SUMMARY}"
+            echo "| -------- | ------- |" >> "${GITHUB_STEP_SUMMARY}"
+
+            grep -E '^# (tests|pass|fail|skipped|cancelled)' "${tap}" 2>/dev/null | while read -r line; do
+              body="${line#\# }"
+              key="${body%% *}"
+              val="${body#"${key}"}"
+              val="${val#"${val%%[![:space:]]*}"}"
+              echo "| ${key} | ${val} |" >> "${GITHUB_STEP_SUMMARY}"
+            done || true
+            echo "" >> "${GITHUB_STEP_SUMMARY}"
+
+            echo "<details><summary>TAP excerpt (last 220 lines)</summary>" >> "${GITHUB_STEP_SUMMARY}"
+            echo "" >> "${GITHUB_STEP_SUMMARY}"
+            echo '```tap' >> "${GITHUB_STEP_SUMMARY}"
+            tail -n 220 "${tap}" >> "${GITHUB_STEP_SUMMARY}"
+            echo '```' >> "${GITHUB_STEP_SUMMARY}"
+            echo "</details>" >> "${GITHUB_STEP_SUMMARY}"
+            echo "" >> "${GITHUB_STEP_SUMMARY}"
+          elif [ "${OUTCOME}" != "success" ] && [[ -f test-results/e2e-output.txt ]]; then
+            echo '```' >> "${GITHUB_STEP_SUMMARY}"
+            head -80 test-results/e2e-output.txt >> "${GITHUB_STEP_SUMMARY}"
+            echo '```' >> "${GITHUB_STEP_SUMMARY}"
+            echo "" >> "${GITHUB_STEP_SUMMARY}"
+          fi
+
+      # ── Build ───────────────────────────────────────────────────────────────
 
       - name: Build binaries
-        run: npm run build
+        id: run_build
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -eo pipefail
+          echo "::group::npm run build"
+          npm run build 2>&1 | tee test-results/build-output.txt
+          exit "${PIPESTATUS[0]}"
+
+      - name: Upload build log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pkg-build
+          path: test-results/build-output.txt
+          retention-days: 7
+          if-no-files-found: ignore
+
+      - name: Build summary
+        if: always()
+        shell: bash
+        env:
+          OUTCOME: ${{ steps.run_build.outcome }}
+        run: |
+          echo "## 📦 Build (\`npm run build\`)" >> "${GITHUB_STEP_SUMMARY}"
+          echo "" >> "${GITHUB_STEP_SUMMARY}"
+
+          if [ "${OUTCOME}" = "success" ]; then
+            echo "✅ **Build succeeded**" >> "${GITHUB_STEP_SUMMARY}"
+          else
+            echo "❌ **Build failed**" >> "${GITHUB_STEP_SUMMARY}"
+          fi
+          echo "" >> "${GITHUB_STEP_SUMMARY}"
+
+          if [[ -f test-results/build-output.txt ]]; then
+            echo "<details><summary>Build log (tail)</summary>" >> "${GITHUB_STEP_SUMMARY}"
+            echo "" >> "${GITHUB_STEP_SUMMARY}"
+            echo '```' >> "${GITHUB_STEP_SUMMARY}"
+            tail -80 test-results/build-output.txt >> "${GITHUB_STEP_SUMMARY}"
+            echo '```' >> "${GITHUB_STEP_SUMMARY}"
+            echo "</details>" >> "${GITHUB_STEP_SUMMARY}"
+            echo "" >> "${GITHUB_STEP_SUMMARY}"
+          fi
 
       - name: Smoke packaged Linux binary
-        run: dist/hole-linux-x64 help
+        id: run_pkg_smoke
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -eo pipefail
+          BIN="dist/hole-linux-x64"
+          echo "::group::dist/hole-linux-x64 help"
+          if [[ ! -x "${BIN}" ]]; then
+            echo "Binary missing — build may have failed." | tee test-results/pkg-smoke-output.txt
+            exit 1
+          fi
+          "${BIN}" help 2>&1 | tee test-results/pkg-smoke-output.txt
+          exit "${PIPESTATUS[0]}"
+
+      - name: Upload packaged binary smoke log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pkg-smoke
+          path: test-results/pkg-smoke-output.txt
+          retention-days: 7
+          if-no-files-found: ignore
+
+      - name: Packaged binary summary
+        if: always()
+        shell: bash
+        env:
+          OUTCOME: ${{ steps.run_pkg_smoke.outcome }}
+        run: |
+          echo "## 🐧 Packaged Linux binary" >> "${GITHUB_STEP_SUMMARY}"
+          echo "" >> "${GITHUB_STEP_SUMMARY}"
+          echo "**Command:** \`dist/hole-linux-x64 help\`" >> "${GITHUB_STEP_SUMMARY}"
+          echo "" >> "${GITHUB_STEP_SUMMARY}"
+
+          if [ "${OUTCOME}" = "success" ]; then
+            echo "✅ **Binary smoke succeeded**" >> "${GITHUB_STEP_SUMMARY}"
+          else
+            echo "❌ **Binary smoke failed** (or binary missing)" >> "${GITHUB_STEP_SUMMARY}"
+          fi
+          echo "" >> "${GITHUB_STEP_SUMMARY}"
+
+          if [[ -f test-results/pkg-smoke-output.txt ]]; then
+            echo '```txt' >> "${GITHUB_STEP_SUMMARY}"
+            tail -45 test-results/pkg-smoke-output.txt >> "${GITHUB_STEP_SUMMARY}"
+            echo '```' >> "${GITHUB_STEP_SUMMARY}"
+            echo "" >> "${GITHUB_STEP_SUMMARY}"
+          fi
+
+      - name: Upload TAP files
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tap-results
+          path: test-results/*.tap
+          retention-days: 7
+          if-no-files-found: ignore
+
+      # continue-on-error above — fail the job only after summaries + artifacts land
+
+      - name: Check required results
+        if: always()
+        shell: bash
+        run: |
+          u="${{ steps.run_unit_tests.outcome }}"
+          c="${{ steps.run_cli_tests.outcome }}"
+          e="${{ steps.run_e2e_tests.outcome }}"
+          b="${{ steps.run_build.outcome }}"
+          p="${{ steps.run_pkg_smoke.outcome }}"
+
+          fail=0
+          [[ "$u" != "success" ]] && echo "::error title=Unit Failed::npm run test:unit" && fail=1
+          [[ "$c" != "success" ]] && echo "::error title=CLI Failed::npm run test:cli" && fail=1
+          [[ "$e" != "success" ]] && echo "::error title=E2E Failed::npm run test:e2e" && fail=1
+          [[ "$b" != "success" ]] && echo "::error title=Build Failed::npm run build" && fail=1
+          [[ "$p" != "success" ]] && echo "::error title=Binary smoke Failed::dist/hole-linux-x64 help" && fail=1
+
+          exit "${fail}"

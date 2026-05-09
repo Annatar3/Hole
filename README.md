@@ -65,16 +65,18 @@ npm run build     # outputs to dist/
 
 ## Testing
 
-Tests run entirely on the local machine / CI runner. They do not use GCP instances or external SSH hosts.
+Tests run entirely on the local machine / CI runner. They do not use GCP instances or external SSH hosts. E2E exercises the real `node hole.js` code path (HyperDHT + local relay). The **packaged Linux binary** is only smoke-tested separately after `npm run build` (in CI and releases), not by `test:e2e`.
 
 ```bash
 npm run test:unit  # pure helpers: args, registry, identity
 npm run test:cli   # CLI command smoke tests with isolated HOME
-npm run test:e2e   # starts local relay, hole up, hole tunnel, and echo server
+npm run test:e2e   # P2P stacks: tunnel, --forward, hole exec/ssh/copy (needs OpenSSH ssh+scp in PATH)
 npm test           # all of the above
 ```
 
-The local E2E test wraps every spawned process and cleans it up after the test.
+E2E runs test files one at a time to avoid flakiness. Every spawned `hole` subprocess and the in-test relay are stopped when the test finishes. `hole exec`, `hole ssh`, and `hole copy` use OpenSSH against a tiny in-process SSH/SFTP server (`ssh2`), not your real `sshd`.
+
+If your machine has no `ssh`/`scp` binaries, those SSH-related E2E cases are skipped automatically.
 
 ---
 
