@@ -1,6 +1,6 @@
 {
   "name": "hole",
-  "version": "0.4.1",
+  "version": "0.4.2",
   "description": "P2P service access via HyperDHT — no port forwarding, no VPN",
   "type": "module",
   "main": "hole.js",
@@ -17,7 +17,7 @@
     "relay": "node hole.js relay",
     "test:unit": "node --test test/unit/*.test.js",
     "test:cli": "node --test test/cli/*.test.js",
-    "test:e2e": "node --test test/e2e/local-tunnel.test.js && node --test test/e2e/ssh-flows.test.js",
+    "test:e2e": "node --test test/e2e/local-tunnel.test.js && node --test test/e2e/invite.test.js && node --test test/e2e/ssh-flows.test.js",
     "test": "npm run test:unit && npm run test:cli && npm run test:e2e",
     "build": "node scripts/build.js"
   },

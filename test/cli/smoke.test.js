@@ -29,6 +29,18 @@ test('CLI smoke uses isolated HOME and validates core commands', () => {
 
     const tunnel = runHole(home, ['tunnel'], { expectCode: 1 })
     assert.match(tunnel, /Usage: hole tunnel/)
+
+    const help = runHole(home, ['help'])
+    assert.match(help, /hole relay --host <ip>/)
+    assert.match(help, /hole invite/)
+    assert.match(help, /hole accept <code>/)
+    assert.match(help, /hole doctor --relay 203\.0\.113\.10:49737/)
+
+    const badRelay = runHole(home, ['add', 'bad-relay', key, '--relay', 'relay-only-host'], { expectCode: 1 })
+    assert.match(badRelay, /--relay must be host:port/)
+
+    const badPort = runHole(home, ['relay', '--host', '203.0.113.10', '--port', '70000'], { expectCode: 1 })
+    assert.match(badPort, /--port must be an integer from 1 to 65535/)
   } finally {
     removeTempHome(home)
   }

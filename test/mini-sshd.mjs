@@ -11,15 +11,23 @@ const { OPEN_MODE, STATUS_CODE } = pkg.utils.sftp
 
 export function generateSshKeyMaterial () {
   // Ed25519 keeps handshakes quick with modern OpenSSH (fewer rsa-sha2 quirks than 2048-bit RSA hosts).
-  const hostPair = generateKeyPairSync('ed25519')
-  const clientPair = generateKeyPairSync('ed25519')
-  const allowedPubKey = parseKey(clientPair.public)
-  return {
-    hostPrivate: hostPair.private,
-    clientPrivate: clientPair.private,
-    clientPublic: clientPair.public,
-    allowedPubKey
+  // ssh2's generated OpenSSH private keys can rarely fail to parse; retry to keep CI deterministic.
+  for (let i = 0; i < 5; i++) {
+    const hostPair = generateKeyPairSync('ed25519')
+    const clientPair = generateKeyPairSync('ed25519')
+    try {
+      const hostKey = parseKey(hostPair.private)
+      const allowedPubKey = parseKey(clientPair.public)
+      if (hostKey instanceof Error || allowedPubKey instanceof Error) continue
+      return {
+        hostPrivate: hostPair.private,
+        clientPrivate: clientPair.private,
+        clientPublic: clientPair.public,
+        allowedPubKey
+      }
+    } catch {}
   }
+  throw new Error('Could not generate parseable SSH test key material')
 }
 
 function checkValue (input, allowed) {

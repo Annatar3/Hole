@@ -26,6 +26,7 @@ hole ssh/tunnel ──[relay]──── hole up
 | `hole services` | Inspect registered service keys |
 | `hole dashboard` | Browser fleet UI — terminals, tunnels, exec, files, ACLs |
 | `hole relay` | Self-hosted relay for CGNAT / mobile networks |
+| `hole invite` | Pair a device with a short one-time invite code |
 | `hole up` | Announce this machine's services on HyperDHT |
 
 State lives in `~/.hole/` — keypair, device registry, ACL, audit log.
@@ -70,7 +71,7 @@ Tests run entirely on the local machine / CI runner. They do not use GCP instanc
 ```bash
 npm run test:unit  # pure helpers: args, registry, identity
 npm run test:cli   # CLI command smoke tests with isolated HOME
-npm run test:e2e   # P2P stacks: tunnel, --forward, hole exec/ssh/copy (needs OpenSSH ssh+scp in PATH)
+npm run test:e2e   # P2P stacks: invite, tunnel, --forward, hole exec/ssh/copy (needs OpenSSH ssh+scp in PATH)
 npm test           # all of the above
 ```
 
@@ -81,6 +82,33 @@ If your machine has no `ssh`/`scp` binaries, those SSH-related E2E cases are ski
 ---
 
 ## Quick start
+
+### Easiest pairing — invite code
+
+On the machine you want to reach:
+
+```bash
+hole invite --name my-server
+# Invite code: blue-river-4821
+```
+
+On your laptop:
+
+```bash
+hole accept blue-river-4821
+hole ssh my-server
+```
+
+The invite is short-lived, one-shot, and stores the remote device key in
+`~/.hole/devices.json`. If you are using a relay, pass the same relay on both
+sides:
+
+```bash
+hole invite --name my-server --relay <vps-ip>:49737
+hole accept blue-river-4821 --relay <vps-ip>:49737
+```
+
+### Manual pairing — copy the key
 
 ### Step 1 — bring the remote machine online
 
@@ -114,15 +142,26 @@ That's it. Hole opens the HyperDHT/Holepunch tunnel and drops you into an SSH se
 When direct hole-punching fails, run a relay on any VPS with a public IP:
 
 ```bash
-# On the VPS — open UDP 49737 inbound in your firewall
-./hole relay
+# On the VPS — open UDP 49737 inbound in your firewall first
+hole relay --host <vps-public-ipv4> --port 49737
 
-# Remote machine
+# Remote machine — use the same relay while announcing
 ./hole up --name my-server --relay <vps-ip>:49737
 
-# Laptop
+# Laptop — store the same relay with the device
 hole add my-server <key> --relay <vps-ip>:49737
 hole ssh my-server
+```
+
+`hole add ... --relay` stores the relay in your registry, so later `hole ssh`,
+`hole exec`, `hole copy`, `hole tunnel`, and `hole ping` can use it without
+repeating `--relay`. You can also pass `--relay <host:port>` per command to
+override the stored value.
+
+For an always-on remote behind CGNAT, install the service with the relay baked in:
+
+```bash
+hole install-service --name my-server --relay <vps-ip>:49737
 ```
 
 Traffic is still end-to-end encrypted; the relay only shuffles UDP packets.
@@ -220,6 +259,7 @@ hole.exe uninstall-service
 
 ```bash
 hole doctor              # config, local SSH target, outbound TCP/UDP, DHT bootstrap
+hole doctor --relay <vps-ip>:49737  # validate a custom relay bootstrap path
 hole key                 # this machine's Hole public key
 hole services my-server  # registered service keys for one device
 hole ping my-server      # latency + reachability with relay/NAT hints
@@ -239,7 +279,9 @@ If `doctor` passes and `ping` returns a latency, everything is working. If `ping
 | `hole exec <device> <user> -- <cmd>` | Run a command, capture output, exit |
 | `hole copy <src> <dest> [user]` | Copy files (`device:/path` for remote side) |
 | `hole tunnel <device> [service] [--port N]` | Expose a TCP service locally |
-| `hole relay [--port N]` | Run a relay server |
+| `hole relay --host <ip> [--port N]` | Run a relay server |
+| `hole invite [--name N] [--relay R]` | Create a short-lived pairing invite |
+| `hole accept <code> [--relay R]` | Accept an invite and register the device |
 | `hole dashboard` | Start the web dashboard |
 | `hole add <name> <key> [--user U] [--relay R] [--identity I]` | Register a device |
 | `hole remove <name>` | Remove a device |

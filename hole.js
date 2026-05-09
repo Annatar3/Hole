@@ -2,7 +2,7 @@
 /**
  * Hole — P2P service access via HyperDHT. No port forwarding required.
  */
-import { parseArgs, die } from './lib/utils.js'
+import { parseArgs, die, normalizeRelayAddress, normalizePort } from './lib/utils.js'
 import { addDevice, removeDevice, listDevices, holeDir, keypairPath, loadRegistry } from './lib/registry.js'
 import { aclAdd, aclRemove, aclList } from './lib/acl.js'
 import { existsSync } from 'fs'
@@ -29,7 +29,9 @@ Usage:
   hole copy <src> <dest>       Copy files to/from a remote host via scp
   hole ping <target>           Check if a remote service is reachable (DHT latency)
   hole tunnel <target> [svc]   Open a local port to a remote service
-  hole relay                   Start a relay node (for CGNAT / mobile hotspot)
+  hole relay --host <ip>       Start a relay node (for CGNAT / mobile hotspot)
+  hole invite                  Create a short-lived pairing invite
+  hole accept <code>           Accept a pairing invite and add the device
   hole install-service         Install "hole up" as a system service
   hole uninstall-service       Remove the system service
   hole completion              Generate shell completion script (bash)
@@ -84,6 +86,7 @@ Options for add:
 Options for list:
   --tag     <label>            Filter by tag
   --ping                       Check live latency for each device
+  --relay   <host:port>        Override stored relay for --ping checks
 
 Options for key:
   --raw                         Print only the 64-char public key
@@ -98,6 +101,17 @@ Options for dashboard:
 Options for relay:
   --host    <ip>               Public IPv4 address to bind as relay
   --port    <n>                UDP port to listen on (default: 49737)
+
+Options for invite:
+  --name    <name>             Device name to share (default: hostname)
+  --relay   <host:port>        Use and include a custom relay node
+  --user    <name>             Default SSH username to include in the invite
+  --ttl     <seconds>          Invite lifetime (default: 600)
+
+Options for accept:
+  --name    <name>             Override invited device name
+  --relay   <host:port>        Use a relay to reach the invite
+  --user    <name>             Override default SSH username
 
 Options for install-service:
   --name    <name>             Device name to pass to "hole up"
@@ -121,6 +135,16 @@ Examples:
   hole up --name my-pc --forward rdp:3389 --forward web:3000
   hole tunnel my-pc rdp   # opens local port for RDP
   hole tunnel my-pc web   # opens local port for browser
+
+  # Relay mode (for CGNAT / mobile networks):
+  hole relay --host 203.0.113.10 --port 49737       # on a VPS with UDP 49737 open
+  hole up --name my-pc --relay 203.0.113.10:49737   # on the remote machine
+  hole add my-pc <printed-key> --relay 203.0.113.10:49737
+  hole doctor --relay 203.0.113.10:49737            # validate the relay path
+
+  # Pair without copying a 64-character key:
+  hole invite --name my-pc                 # on the remote machine
+  hole accept blue-river-4821              # on your laptop
 
   # Lock down who can connect:
   hole acl add laptop <my-laptop-public-key>
@@ -160,6 +184,23 @@ function parseForwards (rawForwards) {
     }
     die(`Invalid --forward value "${raw}". Use: name:port or name:host:port`)
   })
+}
+
+function relayOrNull (relay, source = '--relay') {
+  if (!relay) return null
+  try {
+    return normalizeRelayAddress(relay, source)
+  } catch (e) {
+    die(e.message)
+  }
+}
+
+function portOrDie (raw, label = '--port') {
+  try {
+    return normalizePort(raw, label)
+  } catch (e) {
+    die(e.message)
+  }
 }
 
 function serviceNames (device) {
@@ -233,10 +274,10 @@ async function main () {
       const { run } = await import('./lib/agent.js')
       await run({
         name:     flags.name    ?? null,
-        relay:    flags.relay   ?? null,
+        relay:    relayOrNull(flags.relay),
         forwards: parseForwards(flags.forward),
         sshHost:  process.env.SSH_HOST ?? '127.0.0.1',
-        sshPort:  parseInt(flags.port ?? process.env.SSH_PORT ?? '22', 10)
+        sshPort:  portOrDie(flags.port ?? process.env.SSH_PORT ?? '22', '--port')
       })
       break
     }
@@ -248,7 +289,7 @@ async function main () {
       const devices = loadRegistry()
       const dev     = /^[0-9a-f]{64}$/i.test(target) ? null : devices[target]
       const user    = positional[1] ?? flags.user ?? dev?.user ?? null
-      const relay   = flags.relay ?? dev?.relay ?? null
+      const relay   = relayOrNull(flags.relay ?? dev?.relay ?? null, flags.relay ? '--relay' : 'registered relay')
       const identity = flags.identity ?? dev?.identity ?? null
       // Everything after `--` is forwarded directly to ssh
       const ddash    = process.argv.indexOf('--')
@@ -274,7 +315,7 @@ async function main () {
       await ping({
         target,
         count: parseInt(flags.count ?? '4', 10),
-        relay: flags.relay ?? dev?.relay ?? null
+        relay: relayOrNull(flags.relay ?? dev?.relay ?? null, flags.relay ? '--relay' : 'registered relay')
       })
       break
     }
@@ -286,7 +327,7 @@ async function main () {
       const devices = loadRegistry()
       const dev     = /^[0-9a-f]{64}$/i.test(target) ? null : devices[target]
       const user    = positional[1] ?? flags.user ?? dev?.user ?? null
-      const relay   = flags.relay ?? dev?.relay ?? null
+      const relay   = relayOrNull(flags.relay ?? dev?.relay ?? null, flags.relay ? '--relay' : 'registered relay')
       const identity = flags.identity ?? dev?.identity ?? null
       const ddash = process.argv.indexOf('--')
       const cmd_  = ddash !== -1 ? process.argv.slice(ddash + 1) : []
@@ -312,7 +353,7 @@ async function main () {
       const devices = loadRegistry()
       const dev     = /^[0-9a-f]{64}$/i.test(target) ? null : devices[target]
       const user    = userFlag ?? dev?.user ?? null
-      const relay   = flags.relay ?? dev?.relay ?? null
+      const relay   = relayOrNull(flags.relay ?? dev?.relay ?? null, flags.relay ? '--relay' : 'registered relay')
       const identity = flags.identity ?? dev?.identity ?? null
       const { copy } = await import('./lib/client.js')
       await copy({ target, src, dest, user, relay, identity })
@@ -344,8 +385,8 @@ async function main () {
       await run({
         target,
         service,
-        port:  parseInt(flags.port ?? '2222', 10),
-        relay: flags.relay ?? dev?.relay ?? null
+        port:  portOrDie(flags.port ?? '2222', '--port'),
+        relay: relayOrNull(flags.relay ?? dev?.relay ?? null, flags.relay ? '--relay' : 'registered relay')
       })
       break
     }
@@ -354,7 +395,7 @@ async function main () {
     case 'relay': {
       const { run } = await import('./lib/relay.js')
       await run({
-        port: parseInt(flags.port ?? '49737', 10),
+        port: portOrDie(flags.port ?? '49737', '--port'),
         host: flags.host ?? null
       })
       break
@@ -363,7 +404,31 @@ async function main () {
     // ── doctor ───────────────────────────────────────────────────────────────
     case 'doctor': {
       const { run } = await import('./lib/doctor.js')
-      await run()
+      await run({ relay: relayOrNull(flags.relay) })
+      break
+    }
+
+    // ── invite / accept ───────────────────────────────────────────────────
+    case 'invite': {
+      const { invite } = await import('./lib/invite.js')
+      await invite({
+        name: flags.name ?? null,
+        relay: relayOrNull(flags.relay),
+        user: flags.user ?? null,
+        ttlMs: portOrDie(flags.ttl ?? '600', '--ttl') * 1000
+      })
+      break
+    }
+
+    case 'accept': {
+      const code = positional[0]
+      const { accept } = await import('./lib/invite.js')
+      await accept({
+        code,
+        name: flags.name ?? null,
+        relay: relayOrNull(flags.relay),
+        user: flags.user ?? null
+      })
       break
     }
 
@@ -398,8 +463,8 @@ async function main () {
       const { install } = await import('./lib/installer.js')
       const agentArgs = []
       if (flags.name)  agentArgs.push('--name',  flags.name)
-      if (flags.relay) agentArgs.push('--relay', flags.relay)
-      if (flags.port)  agentArgs.push('--port',  flags.port)
+      if (flags.relay) agentArgs.push('--relay', relayOrNull(flags.relay))
+      if (flags.port)  agentArgs.push('--port', String(portOrDie(flags.port, '--port')))
       if (flags.forward) {
         for (const forward of [].concat(flags.forward)) agentArgs.push('--forward', forward)
       }
@@ -422,7 +487,7 @@ _hole_completion() {
   COMPREPLY=()
   cur="\${COMP_WORDS[COMP_CWORD]}"
   prev="\${COMP_WORDS[COMP_CWORD-1]}"
-  opts="up ssh exec copy ping tunnel relay install-service uninstall-service list add remove status key whoami services audit dashboard acl doctor help completion"
+  opts="up ssh exec copy ping tunnel relay invite accept install-service uninstall-service list add remove status key whoami services audit dashboard acl doctor help completion"
 
   case "\${prev}" in
     ssh|exec|copy|ping|tunnel|client|services|remove|add)
@@ -473,7 +538,7 @@ complete -F _hole_completion hole
 
           let pingCol = ''
           if (showPing) {
-            const res = await pingOne({ target: name, relay: d.relay })
+            const res = await pingOne({ target: name, relay: relayOrNull(flags.relay ?? d.relay ?? null, flags.relay ? '--relay' : 'registered relay') })
             pingCol = (res.online ? `${res.ms}ms` : 'DOWN').padEnd(10)
           }
 
@@ -493,7 +558,7 @@ complete -F _hole_completion hole
       const tags    = rawTags ? [].concat(rawTags) : undefined
       addDevice(name, key, {
         user:     flags.user     ?? undefined,
-        relay:    flags.relay    ?? undefined,
+        relay:    relayOrNull(flags.relay) ?? undefined,
         identity: flags.identity ?? undefined,
         tags
       })
