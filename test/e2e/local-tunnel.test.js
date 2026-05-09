@@ -1,28 +1,15 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { spawnSync } from 'child_process'
 import net from 'net'
 import {
   freePort,
   makeTempHome,
-  node,
   removeTempHome,
-  root,
+  runHoleAsync,
   spawnHole,
   stopProcess,
   waitForOutput
 } from '../helpers.js'
-
-function runHole (home, args) {
-  const res = spawnSync(node, ['hole.js', ...args], {
-    cwd: root,
-    env: { ...process.env, HOME: home },
-    encoding: 'utf8'
-  })
-  const output = `${res.stdout || ''}${res.stderr || ''}`
-  assert.equal(res.status, 0, output)
-  return output
-}
 
 function startEchoServer () {
   return new Promise((resolve, reject) => {
@@ -86,8 +73,9 @@ test('local relay + hole up + hole tunnel forwards bytes through a local TCP ser
     const key = upOutput.match(/key:\s+([0-9a-f]{64})/i)?.[1]
     assert.match(key, /^[0-9a-f]{64}$/)
 
-    runHole(clientHome, ['add', 'ci-local', key, '--relay', relayAddr])
-    assert.match(runHole(clientHome, ['ping', 'ci-local', '--count', '1']), /status=UP/)
+    await runHoleAsync(clientHome, ['add', 'ci-local', key, '--relay', relayAddr], { timeoutMs: 90000 })
+    const pingOut = await runHoleAsync(clientHome, ['ping', 'ci-local', '--count', '1'], { timeoutMs: 90000 })
+    assert.match(pingOut, /status=UP/)
 
     tunnel = spawnHole(['tunnel', 'ci-local', '--port', String(proxyPort)], { home: clientHome })
     await waitForOutput(tunnel, new RegExp(`Proxy\\s+:\\s+127\\.0\\.0\\.1:${proxyPort}`), { timeoutMs: 30000 })

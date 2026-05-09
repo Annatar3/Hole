@@ -27,6 +27,49 @@ export function freePort () {
   })
 }
 
+/**
+ * Runs `hole.js` asynchronously (non-blocking). Use inside `async` tests instead of spawnSync so
+ * the test runner timeouts and TAP output can flush; spawnSync freezes the event loop and can hang CI.
+ */
+export function runHoleAsync (home, args, { expectCode = 0, timeoutMs = 120000, extraEnv = {} } = {}) {
+  return new Promise((resolve, reject) => {
+    const child = spawn(node, ['hole.js', ...args], {
+      cwd: root,
+      env: { ...process.env, HOME: home ?? process.env.HOME, ...extraEnv },
+      encoding: 'utf8'
+    })
+
+    let out = ''
+    const append = (d) => { out += String(d) }
+    child.stdout.on('data', append)
+    child.stderr.on('data', append)
+
+    const timer = setTimeout(() => {
+      try { child.kill('SIGKILL') } catch {}
+      reject(new Error(
+        `hole.js ${args.join(' ')} timed out after ${timeoutMs}ms\n${out}`
+      ))
+    }, timeoutMs)
+
+    child.on('close', (code, signal) => {
+      clearTimeout(timer)
+      if (signal === 'SIGKILL') {
+        reject(new Error(`hole.js SIGKILL (likely timeout)\n${out}`))
+        return
+      }
+      if (code !== expectCode) {
+        reject(new Error(`hole.js exited ${code}, expected ${expectCode}\n${out}`))
+        return
+      }
+      resolve(out)
+    })
+    child.on('error', (err) => {
+      clearTimeout(timer)
+      reject(err)
+    })
+  })
+}
+
 export function spawnHole (args, { home, extraEnv = {} } = {}) {
   const child = spawn(node, ['hole.js', ...args], {
     cwd: root,

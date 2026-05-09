@@ -17,7 +17,7 @@
     "relay": "node hole.js relay",
     "test:unit": "node --test test/unit/*.test.js",
     "test:cli": "node --test test/cli/*.test.js",
-    "test:e2e": "node --test --test-concurrency=1 test/e2e/*.test.js",
+    "test:e2e": "node --test test/e2e/local-tunnel.test.js && node --test test/e2e/ssh-flows.test.js",
     "test": "npm run test:unit && npm run test:cli && npm run test:e2e",
     "build": "node scripts/build.js"
   },

@@ -8,9 +8,8 @@ import { addDevice } from '../../lib/registry.js'
 import {
   freePort,
   makeTempHome,
-  node,
   removeTempHome,
-  root,
+  runHoleAsync,
   spawnHole,
   stopProcess,
   waitForOutput
@@ -47,17 +46,6 @@ function parseHoleUpServices (output) {
     map[m[1]] = m[2]
   }
   return map
-}
-
-function runHole (home, args, { expectCode = 0 } = {}) {
-  const res = spawnSync(node, ['hole.js', ...args], {
-    cwd: root,
-    env: { ...process.env, HOME: home },
-    encoding: 'utf8'
-  })
-  const output = `${res.stdout || ''}${res.stderr || ''}`
-  assert.equal(res.status, expectCode, output)
-  return output
 }
 
 function startEchoServer () {
@@ -98,7 +86,7 @@ function sendAndReceive (port, payload) {
   })
 }
 
-test('hole exec reaches local SSH over DHT (OpenSSH + mini sshd)', { skip: !hasOpensshClient(), timeout: 120000 }, async () => {
+test('hole exec reaches local SSH over DHT (OpenSSH + mini sshd)', { skip: !hasOpensshClient(), timeout: 180000 }, async () => {
   const serverHome = makeTempHome('hole-e2e-exec-srv-')
   const clientHome = makeTempHome('hole-e2e-exec-cli-')
   const relayHome = makeTempHome('hole-e2e-exec-relay-')
@@ -127,12 +115,12 @@ test('hole exec reaches local SSH over DHT (OpenSSH + mini sshd)', { skip: !hasO
     const masterKey = upOut.match(/key:\s+([0-9a-f]{64})/i)?.[1]
     assert.match(masterKey, /^[0-9a-f]{64}$/)
 
-    runHole(clientHome, ['add', 'ci-exec', masterKey, '--relay', relayAddr])
+    await runHoleAsync(clientHome, ['add', 'ci-exec', masterKey, '--relay', relayAddr], { timeoutMs: 60000 })
 
     const marker = `hole-exec-e2e-${Date.now()}`
-    const out = runHole(clientHome, [
+    const out = await runHoleAsync(clientHome, [
       'exec', 'ci-exec', SSH_USER, '--identity', identity, '--relay', relayAddr, '--', 'echo', marker
-    ])
+    ], { timeoutMs: 90000 })
     assert.match(out, new RegExp(marker))
   } finally {
     await stopProcess(up)
@@ -144,7 +132,7 @@ test('hole exec reaches local SSH over DHT (OpenSSH + mini sshd)', { skip: !hasO
   }
 })
 
-test('hole ssh runs remote command over DHT (OpenSSH + mini sshd)', { skip: !hasOpensshClient(), timeout: 120000 }, async () => {
+test('hole ssh runs remote command over DHT (OpenSSH + mini sshd)', { skip: !hasOpensshClient(), timeout: 180000 }, async () => {
   const serverHome = makeTempHome('hole-e2e-ssh-srv-')
   const clientHome = makeTempHome('hole-e2e-ssh-cli-')
   const relayHome = makeTempHome('hole-e2e-ssh-relay-')
@@ -173,12 +161,12 @@ test('hole ssh runs remote command over DHT (OpenSSH + mini sshd)', { skip: !has
     const masterKey = upOut.match(/key:\s+([0-9a-f]{64})/i)?.[1]
     assert.match(masterKey, /^[0-9a-f]{64}$/)
 
-    runHole(clientHome, ['add', 'ci-ssh', masterKey, '--relay', relayAddr])
+    await runHoleAsync(clientHome, ['add', 'ci-ssh', masterKey, '--relay', relayAddr], { timeoutMs: 60000 })
 
     const marker = `hole-ssh-e2e-${Date.now()}`
-    const out = runHole(clientHome, [
+    const out = await runHoleAsync(clientHome, [
       'ssh', 'ci-ssh', SSH_USER, '--identity', identity, '--relay', relayAddr, '--', 'echo', marker
-    ])
+    ], { timeoutMs: 90000 })
     assert.match(out, new RegExp(marker))
   } finally {
     await stopProcess(up)
@@ -190,7 +178,7 @@ test('hole ssh runs remote command over DHT (OpenSSH + mini sshd)', { skip: !has
   }
 })
 
-test('hole up --forward + hole tunnel reaches a named TCP service', { timeout: 120000 }, async () => {
+test('hole up --forward + hole tunnel reaches a named TCP service', { timeout: 180000 }, async () => {
   const serverHome = makeTempHome('hole-e2e-fwd-srv-')
   const clientHome = makeTempHome('hole-e2e-fwd-cli-')
   const relayHome = makeTempHome('hole-e2e-fwd-relay-')
@@ -245,7 +233,8 @@ test('hole up --forward + hole tunnel reaches a named TCP service', { timeout: 1
       process.env.HOME = oldHome
     }
 
-    assert.match(runHole(clientHome, ['ping', 'ci-fwd', '--count', '1']), /status=UP/)
+    const pingOut = await runHoleAsync(clientHome, ['ping', 'ci-fwd', '--count', '1'], { timeoutMs: 90000 })
+    assert.match(pingOut, /status=UP/)
 
     tunnel = spawnHole(['tunnel', 'ci-fwd', 'aux', '--port', String(proxyPort), '--relay', relayAddr], { home: clientHome })
     await waitForOutput(tunnel, new RegExp(`Proxy\\s+:\\s+127\\.0\\.0\\.1:${proxyPort}`), { timeoutMs: 35000 })
@@ -264,7 +253,7 @@ test('hole up --forward + hole tunnel reaches a named TCP service', { timeout: 1
   }
 })
 
-test('hole copy uploads through DHT + OpenSSH SFTP', { skip: !hasOpensshClient(), timeout: 120000 }, async () => {
+test('hole copy uploads through DHT + OpenSSH SFTP', { skip: !hasOpensshClient(), timeout: 180000 }, async () => {
   const serverHome = makeTempHome('hole-e2e-scp-srv-')
   const clientHome = makeTempHome('hole-e2e-scp-cli-')
   const relayHome = makeTempHome('hole-e2e-scp-relay-')
@@ -300,9 +289,9 @@ test('hole copy uploads through DHT + OpenSSH SFTP', { skip: !hasOpensshClient()
     const masterKey = upOut.match(/key:\s+([0-9a-f]{64})/i)?.[1]
     assert.match(masterKey, /^[0-9a-f]{64}$/)
 
-    runHole(clientHome, ['add', 'ci-copy', masterKey, '--relay', relayAddr])
+    await runHoleAsync(clientHome, ['add', 'ci-copy', masterKey, '--relay', relayAddr], { timeoutMs: 60000 })
 
-    runHole(clientHome, [
+    await runHoleAsync(clientHome, [
       'copy',
       localFile,
       `ci-copy:${REMOTE_UPLOAD}`,
@@ -311,7 +300,7 @@ test('hole copy uploads through DHT + OpenSSH SFTP', { skip: !hasOpensshClient()
       identity,
       '--relay',
       relayAddr
-    ])
+    ], { timeoutMs: 30000 })
 
     assert.equal(uploaded.get(REMOTE_UPLOAD)?.toString(), body)
   } finally {
