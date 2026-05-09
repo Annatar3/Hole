@@ -1,6 +1,6 @@
 {
   "name": "hole",
-  "version": "0.3.5",
+  "version": "0.4.0",
   "description": "P2P service access via HyperDHT — no port forwarding, no VPN",
   "type": "module",
   "main": "hole.js",

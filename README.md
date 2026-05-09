@@ -10,6 +10,8 @@ hole ssh/tunnel ──[HyperDHT]── hole up
 hole ssh/tunnel ──[relay]──── hole up
 ```
 
+**Upgrading from 0.3.x (0.4+):** Prefer `hole up` / `hole tunnel` (`agent` / `client` remain as aliases). Re-run `hole install-service --name …` so your unit runs `hole up` instead of `hole agent`.
+
 ---
 
 ## What you get
