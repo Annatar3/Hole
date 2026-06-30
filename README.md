@@ -22,6 +22,7 @@ hole ssh/tunnel ──[relay]──── hole up
 | `hole exec` | Run a command remotely, get output, exit |
 | `hole copy` | `scp`-style file transfer over P2P |
 | `hole tunnel` | Expose any TCP service (RDP, HTTP, DB…) locally |
+| `hole share` | Send a file to anyone with a short one-time code — no pre-registration |
 | `hole key` | Show this machine's Hole public key for pairing/ACL setup |
 | `hole services` | Inspect registered service keys |
 | `hole dashboard` | Browser fleet UI — terminals, tunnels, exec, files, ACLs |
@@ -66,12 +67,12 @@ npm run build     # outputs to dist/
 
 ## Testing
 
-Tests run entirely on the local machine / CI runner. They do not use GCP instances or external SSH hosts. E2E exercises the real `node hole.js` code path (HyperDHT + local relay). The **packaged Linux binary** is only smoke-tested separately after `npm run build` (in CI and releases), not by `test:e2e`.
+Tests run entirely on the local machine / CI runner. They do not use GCP instances or external SSH hosts. E2E exercises the real `node hole.js` code path (HyperDHT + local relay). The **packaged Linux binary** is smoke-tested in the release workflow after `npm run build`; it is not part of the regular test suite.
 
 ```bash
 npm run test:unit  # pure helpers: args, registry, identity
 npm run test:cli   # CLI command smoke tests with isolated HOME
-npm run test:e2e   # P2P stacks: invite, tunnel, --forward, hole exec/ssh/copy (needs OpenSSH ssh+scp in PATH)
+npm run test:e2e   # P2P stacks: invite, tunnel, share, --forward, hole exec/ssh/copy (needs OpenSSH ssh+scp in PATH)
 npm test           # all of the above
 ```
 
@@ -89,13 +90,13 @@ On the machine you want to reach:
 
 ```bash
 hole invite --name my-server
-# Invite code: blue-river-4821
+# Invite code: blue-river-cedar-4821
 ```
 
 On your laptop:
 
 ```bash
-hole accept blue-river-4821
+hole accept blue-river-cedar-4821
 hole ssh my-server
 ```
 
@@ -105,7 +106,39 @@ sides:
 
 ```bash
 hole invite --name my-server --relay <vps-ip>:49737
-hole accept blue-river-4821 --relay <vps-ip>:49737
+hole accept blue-river-cedar-4821 --relay <vps-ip>:49737
+```
+
+### Send a file without any setup — hole share
+
+No registered device, no SSH key, no prior pairing needed. Works between any two machines that can reach the same relay (or the public DHT).
+
+On the sender:
+
+```bash
+hole share report.pdf
+# Share code: amber-stone-cedar-7823
+# Waiting for one receiver...
+```
+
+On the receiver:
+
+```bash
+hole receive amber-stone-cedar-7823
+# → Saved to report.pdf
+```
+
+The code is one-shot: after one successful download the sender exits. The file is transferred directly over the encrypted HyperDHT tunnel — no size limit, no intermediary. Use `--relay` on both sides if either machine is behind strict NAT:
+
+```bash
+hole share report.pdf --relay <vps-ip>:49737
+hole receive amber-stone-cedar-7823 --relay <vps-ip>:49737
+```
+
+Save to a specific path with `--out`:
+
+```bash
+hole receive amber-stone-cedar-7823 --out ~/Downloads/report.pdf
 ```
 
 ### Manual pairing — copy the key
@@ -188,6 +221,8 @@ hole tunnel my-pc rdp
 # Open a local port for the web service
 hole tunnel my-pc web --port 8080
 ```
+
+If a forwarded service isn't running yet, `hole up` warns and skips it instead of aborting — the remaining services are still announced.
 
 ---
 
@@ -282,6 +317,8 @@ If `doctor` passes and `ping` returns a latency, everything is working. If `ping
 | `hole relay --host <ip> [--port N]` | Run a relay server |
 | `hole invite [--name N] [--relay R]` | Create a short-lived pairing invite |
 | `hole accept <code> [--relay R]` | Accept an invite and register the device |
+| `hole share <file> [--relay R] [--ttl N]` | Send a file via a short one-time code |
+| `hole receive <code> [--out path] [--relay R]` | Receive a file from a `hole share` sender |
 | `hole dashboard` | Start the web dashboard |
 | `hole add <name> <key> [--user U] [--relay R] [--identity I]` | Register a device |
 | `hole remove <name>` | Remove a device |
