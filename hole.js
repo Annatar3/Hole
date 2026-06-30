@@ -32,6 +32,8 @@ Usage:
   hole relay --host <ip>       Start a relay node (for CGNAT / mobile hotspot)
   hole invite                  Create a short-lived pairing invite
   hole accept <code>           Accept a pairing invite and add the device
+  hole share <file>            Send a file via a short one-time code (no pre-registration)
+  hole receive <code>          Receive a file from a \`hole share\` sender
   hole install-service         Install "hole up" as a system service
   hole uninstall-service       Remove the system service
   hole completion              Generate shell completion script (bash)
@@ -112,6 +114,14 @@ Options for accept:
   --name    <name>             Override invited device name
   --relay   <host:port>        Use a relay to reach the invite
   --user    <name>             Override default SSH username
+
+Options for share:
+  --relay   <host:port>        Use a custom relay node
+  --ttl     <seconds>          Share lifetime in seconds (default: 600)
+
+Options for receive:
+  --out     <path>             Destination file or directory (default: current dir)
+  --relay   <host:port>        Use a relay to reach the sender
 
 Options for install-service:
   --name    <name>             Device name to pass to "hole up"
@@ -432,6 +442,31 @@ async function main () {
       break
     }
 
+    // ── share / receive ────────────────────────────────────────────────────
+    case 'share': {
+      const filePath = positional[0]
+      if (!filePath) die('Usage: hole share <file> [--relay host:port] [--ttl seconds]')
+      const { share } = await import('./lib/share.js')
+      await share({
+        filePath,
+        relay: relayOrNull(flags.relay),
+        ttlMs: flags.ttl ? portOrDie(flags.ttl, '--ttl') * 1000 : undefined
+      })
+      break
+    }
+
+    case 'receive': {
+      const code = positional[0]
+      if (!code) die('Usage: hole receive <share-code> [--out <path>] [--relay host:port]')
+      const { receive } = await import('./lib/share.js')
+      await receive({
+        code,
+        dest:  flags.out   ?? '.',
+        relay: relayOrNull(flags.relay)
+      })
+      break
+    }
+
     // ── key / whoami ───────────────────────────────────────────────────────
     case 'key':
     case 'whoami': {
@@ -487,7 +522,7 @@ _hole_completion() {
   COMPREPLY=()
   cur="\${COMP_WORDS[COMP_CWORD]}"
   prev="\${COMP_WORDS[COMP_CWORD-1]}"
-  opts="up ssh exec copy ping tunnel relay invite accept install-service uninstall-service list add remove status key whoami services audit dashboard acl doctor help completion"
+  opts="up ssh exec copy ping tunnel relay invite accept share receive install-service uninstall-service list add remove status key whoami services audit dashboard acl doctor help completion"
 
   case "\${prev}" in
     ssh|exec|copy|ping|tunnel|client|services|remove|add)

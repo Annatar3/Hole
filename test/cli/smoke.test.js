@@ -41,6 +41,18 @@ test('CLI smoke uses isolated HOME and validates core commands', () => {
 
     const badPort = runHole(home, ['relay', '--host', '203.0.113.10', '--port', '70000'], { expectCode: 1 })
     assert.match(badPort, /--port must be an integer from 1 to 65535/)
+
+    // hole up with no reachable service should exit with a clear message, not a crash
+    const noServices = runHole(home, ['up', '--port', '19999'], { expectCode: 1 })
+    assert.match(noServices, /No services are reachable/)
+
+    // hole share with no file arg should exit with usage hint
+    const noFile = runHole(home, ['share'], { expectCode: 1 })
+    assert.match(noFile, /Usage: hole share/)
+
+    // hole receive with no code arg should exit with usage hint
+    const noCode = runHole(home, ['receive'], { expectCode: 1 })
+    assert.match(noCode, /Usage: hole receive/)
   } finally {
     removeTempHome(home)
   }

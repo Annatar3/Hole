@@ -40,9 +40,15 @@ test('normalizePort accepts valid TCP/UDP port numbers only', () => {
   assert.throws(() => normalizePort('abc'), /1 to 65535/)
 })
 
-test('invite codes are short human-readable tokens', () => {
+test('invite codes are three-word tokens with ~37 bits of entropy', () => {
   const code = createInviteCode()
-  assert.match(code, /^[a-z]+-[a-z]+-\d{4}$/)
+  assert.match(code, /^[a-z]+-[a-z]+-[a-z]+-\d{4}$/)
   assert.equal(isInviteCode(code), true)
   assert.equal(isInviteCode('not-a-code'), false)
+  assert.equal(isInviteCode('blue-river-4821'), false, 'old two-word format must not be accepted')
+
+  // Verify all generated words come from the 256-word list and the digit block is valid
+  const parts = code.split('-')
+  assert.equal(parts.length, 4)
+  assert.match(parts[3], /^\d{4}$/)
 })

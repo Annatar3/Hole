@@ -27,9 +27,9 @@ test('hole invite + hole accept pairs a device through a local relay', { timeout
     invite = spawnHole(['invite', '--name', 'invited-pc', '--relay', relayAddr, '--user', 'alice', '--ttl', '30'], {
       home: inviteHome
     })
-    const inviteOutput = await waitForOutput(invite, /Invite code:\s+[a-z]+-[a-z]+-\d{4}/, { timeoutMs: 30000 })
-    const code = inviteOutput.match(/Invite code:\s+([a-z]+-[a-z]+-\d{4})/)?.[1]
-    assert.match(code, /^[a-z]+-[a-z]+-\d{4}$/)
+    const inviteOutput = await waitForOutput(invite, /Invite code:\s+[a-z]+-[a-z]+-[a-z]+-\d{4}/, { timeoutMs: 30000 })
+    const code = inviteOutput.match(/Invite code:\s+([a-z]+-[a-z]+-[a-z]+-\d{4})/)?.[1]
+    assert.match(code, /^[a-z]+-[a-z]+-[a-z]+-\d{4}$/)
 
     const acceptOutput = await runHoleAsync(acceptHome, ['accept', code, '--relay', relayAddr], { timeoutMs: 30000 })
     assert.match(acceptOutput, /Added "invited-pc" from invite/)

@@ -2,7 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import fs from 'fs'
 import path from 'path'
-import { addDevice, listDevices, removeDevice, touchDevice } from '../../lib/registry.js'
+import { addDevice, listDevices, removeDevice, touchDevice, holeDir } from '../../lib/registry.js'
 import { makeTempHome, removeTempHome } from '../helpers.js'
 
 const KEY_A = 'a'.repeat(64)
@@ -40,6 +40,21 @@ test('registry stores devices under isolated HOME and preserves metadata on upda
     assert.deepEqual(listDevices(), {})
 
     assert.equal(fs.existsSync(path.join(home, '.hole', 'devices.json')), true)
+  } finally {
+    process.env.HOME = oldHome
+    removeTempHome(home)
+  }
+})
+
+test('saveRegistry leaves no .tmp file after a successful write', () => {
+  const oldHome = process.env.HOME
+  const home = makeTempHome('hole-registry-atomic-')
+  process.env.HOME = home
+  try {
+    addDevice('node', KEY_A)
+    const dir = holeDir()
+    assert.equal(fs.existsSync(path.join(dir, 'devices.json')), true)
+    assert.equal(fs.existsSync(path.join(dir, 'devices.json.tmp')), false)
   } finally {
     process.env.HOME = oldHome
     removeTempHome(home)
