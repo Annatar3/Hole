@@ -1,0 +1,103 @@
+#!/bin/sh
+# Hole installer
+# Usage:
+#   curl -fsSL hole.onl/get | sh
+#   curl -fsSL hole.onl/get | INSTALL_DIR=/usr/local/bin sh
+
+set -e
+
+REPO="Annatar3/Hole"
+INSTALL_DIR="${INSTALL_DIR:-$HOME/.local/bin}"
+BIN="hole"
+
+# ── helpers ───────────────────────────────────────────────────────────────────
+
+die()  { echo "Error: $*" >&2; exit 1; }
+need() { command -v "$1" >/dev/null 2>&1 || die "Required: $1 (not found in PATH)"; }
+say()  { printf '  %s\n' "$*"; }
+
+# ── OS / arch ─────────────────────────────────────────────────────────────────
+
+OS=$(uname -s)
+ARCH=$(uname -m)
+
+case "$OS" in
+  Linux)
+    case "$ARCH" in
+      x86_64)        ASSET="hole-linux-x64" ;;
+      aarch64|arm64) ASSET="hole-linux-arm64" ;;
+      *) die "Unsupported Linux arch: $ARCH" ;;
+    esac ;;
+  Darwin)
+    case "$ARCH" in
+      x86_64) ASSET="hole-macos-x64" ;;
+      arm64)  ASSET="hole-macos-arm64" ;;
+      *) die "Unsupported macOS arch: $ARCH" ;;
+    esac ;;
+  MINGW*|MSYS*|CYGWIN*)
+    echo ""
+    echo "Windows detected. Run this in PowerShell instead:"
+    echo "  irm hole.onl/get.ps1 | iex"
+    echo ""
+    exit 0 ;;
+  *)
+    die "Unsupported OS: $OS" ;;
+esac
+
+need curl
+
+# ── resolve latest release ────────────────────────────────────────────────────
+
+echo ""
+echo "Hole installer"
+echo "──────────────"
+say "Platform : $OS / $ARCH  →  $ASSET"
+
+API_URL="https://api.github.com/repos/$REPO/releases/latest"
+DOWNLOAD_URL=$(curl -fsSL "$API_URL" \
+  | grep '"browser_download_url"' \
+  | grep "\"$ASSET\"" \
+  | head -1 \
+  | cut -d'"' -f4)
+
+[ -n "$DOWNLOAD_URL" ] || die "Could not find asset '$ASSET' in latest release. Check https://github.com/$REPO/releases"
+
+VERSION=$(echo "$DOWNLOAD_URL" | grep -o 'v[0-9]*\.[0-9]*\.[0-9]*' | head -1)
+say "Version  : ${VERSION:-latest}"
+say "Install  : $INSTALL_DIR/$BIN"
+echo ""
+
+# ── download ──────────────────────────────────────────────────────────────────
+
+TMP=$(mktemp)
+trap 'rm -f "$TMP"' EXIT
+
+curl -fsSL --progress-bar "$DOWNLOAD_URL" -o "$TMP"
+chmod +x "$TMP"
+
+# ── install ───────────────────────────────────────────────────────────────────
+
+mkdir -p "$INSTALL_DIR"
+mv "$TMP" "$INSTALL_DIR/$BIN"
+
+echo ""
+echo "✓ Installed to $INSTALL_DIR/$BIN"
+echo ""
+
+# Warn if INSTALL_DIR is not on PATH
+case ":$PATH:" in
+  *":$INSTALL_DIR:"*)
+    echo "Run:  hole help"
+    ;;
+  *)
+    echo "Add hole to your PATH:"
+    echo ""
+    echo "  export PATH=\"\$PATH:$INSTALL_DIR\""
+    echo ""
+    echo "Paste that line into ~/.bashrc or ~/.zshrc, reload your shell, then:"
+    echo ""
+    echo "  hole help"
+    ;;
+esac
+
+echo ""
