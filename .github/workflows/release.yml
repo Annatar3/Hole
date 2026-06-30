@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
 
     permissions:
-      contents: write  
+      contents: write
 
     steps:
       - name: Checkout
@@ -20,9 +20,15 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "22"
+          cache: npm
 
       - name: Install dependencies
         run: npm ci
+
+      # Run the full test suite before building — release is blocked if any test fails.
+
+      - name: Run tests
+        run: npm test
 
       - name: Build binaries
         run: npm run build

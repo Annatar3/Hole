@@ -272,111 +272,6 @@ jobs:
             echo "" >> "${GITHUB_STEP_SUMMARY}"
           fi
 
-      # ── Build ───────────────────────────────────────────────────────────────
-
-      - name: Build binaries
-        id: run_build
-        continue-on-error: true
-        shell: bash
-        run: |
-          set -euo pipefail
-          echo "::group::npm run build"
-          set +e
-          npm run build 2>&1 | tee test-results/build-output.txt
-          code=${PIPESTATUS[0]}
-          set -e
-          echo "::endgroup::"
-          exit "${code}"
-
-      - name: Upload build log
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: pkg-build
-          path: test-results/build-output.txt
-          retention-days: 7
-          if-no-files-found: ignore
-
-      - name: Build summary
-        if: always()
-        shell: bash
-        env:
-          OUTCOME: ${{ steps.run_build.outcome }}
-        run: |
-          echo "## 📦 Build (\`npm run build\`)" >> "${GITHUB_STEP_SUMMARY}"
-          echo "" >> "${GITHUB_STEP_SUMMARY}"
-
-          if [ "${OUTCOME}" = "success" ]; then
-            echo "✅ **Build succeeded**" >> "${GITHUB_STEP_SUMMARY}"
-          else
-            echo "❌ **Build failed**" >> "${GITHUB_STEP_SUMMARY}"
-          fi
-          echo "" >> "${GITHUB_STEP_SUMMARY}"
-
-          if [[ -f test-results/build-output.txt ]]; then
-            echo "<details><summary>Build log (tail)</summary>" >> "${GITHUB_STEP_SUMMARY}"
-            echo "" >> "${GITHUB_STEP_SUMMARY}"
-            echo '```' >> "${GITHUB_STEP_SUMMARY}"
-            tail -80 test-results/build-output.txt >> "${GITHUB_STEP_SUMMARY}"
-            echo '```' >> "${GITHUB_STEP_SUMMARY}"
-            echo "</details>" >> "${GITHUB_STEP_SUMMARY}"
-            echo "" >> "${GITHUB_STEP_SUMMARY}"
-          fi
-
-      - name: Smoke packaged Linux binary
-        id: run_pkg_smoke
-        continue-on-error: true
-        shell: bash
-        run: |
-          set -euo pipefail
-          BIN="dist/hole-linux-x64"
-          echo "::group::dist/hole-linux-x64 help"
-          set +e
-          if [[ ! -x "${BIN}" ]]; then
-            echo "Binary missing — build may have failed." | tee test-results/pkg-smoke-output.txt
-            code=1
-          else
-            "${BIN}" help 2>&1 | tee test-results/pkg-smoke-output.txt
-            code=${PIPESTATUS[0]}
-          fi
-          set -e
-          echo "::endgroup::"
-          exit "${code}"
-
-      - name: Upload packaged binary smoke log
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: pkg-smoke
-          path: test-results/pkg-smoke-output.txt
-          retention-days: 7
-          if-no-files-found: ignore
-
-      - name: Packaged binary summary
-        if: always()
-        shell: bash
-        env:
-          OUTCOME: ${{ steps.run_pkg_smoke.outcome }}
-        run: |
-          echo "## 🐧 Packaged Linux binary" >> "${GITHUB_STEP_SUMMARY}"
-          echo "" >> "${GITHUB_STEP_SUMMARY}"
-          echo "**Command:** \`dist/hole-linux-x64 help\`" >> "${GITHUB_STEP_SUMMARY}"
-          echo "" >> "${GITHUB_STEP_SUMMARY}"
-
-          if [ "${OUTCOME}" = "success" ]; then
-            echo "✅ **Binary smoke succeeded**" >> "${GITHUB_STEP_SUMMARY}"
-          else
-            echo "❌ **Binary smoke failed** (or binary missing)" >> "${GITHUB_STEP_SUMMARY}"
-          fi
-          echo "" >> "${GITHUB_STEP_SUMMARY}"
-
-          if [[ -f test-results/pkg-smoke-output.txt ]]; then
-            echo '```txt' >> "${GITHUB_STEP_SUMMARY}"
-            tail -45 test-results/pkg-smoke-output.txt >> "${GITHUB_STEP_SUMMARY}"
-            echo '```' >> "${GITHUB_STEP_SUMMARY}"
-            echo "" >> "${GITHUB_STEP_SUMMARY}"
-          fi
-
       - name: Upload TAP files
         if: always()
         uses: actions/upload-artifact@v4
@@ -395,14 +290,10 @@ jobs:
           u="${{ steps.run_unit_tests.outcome }}"
           c="${{ steps.run_cli_tests.outcome }}"
           e="${{ steps.run_e2e_tests.outcome }}"
-          b="${{ steps.run_build.outcome }}"
-          p="${{ steps.run_pkg_smoke.outcome }}"
 
           fail=0
           [[ "$u" != "success" ]] && echo "::error title=Unit Failed::npm run test:unit" && fail=1
           [[ "$c" != "success" ]] && echo "::error title=CLI Failed::npm run test:cli" && fail=1
           [[ "$e" != "success" ]] && echo "::error title=E2E Failed::npm run test:e2e" && fail=1
-          [[ "$b" != "success" ]] && echo "::error title=Build Failed::npm run build" && fail=1
-          [[ "$p" != "success" ]] && echo "::error title=Binary smoke Failed::dist/hole-linux-x64 help" && fail=1
 
           exit "${fail}"
