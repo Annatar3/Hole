@@ -10,6 +10,8 @@ hole ssh/tunnel ──[HyperDHT]── hole up
 hole ssh/tunnel ──[relay]──── hole up
 ```
 
+**New in 0.5.0:** [`hole proxy`](#reach-any-service-on-a-remote-network--hole-proxy) — a local SOCKS5 tunnel that reaches any service on a remote network (`hole up --proxy` on the far side). Plus sturdier connections (more transient hole-punch errors are retried, with exponential backoff + jitter) and hardening fixes so a peer that resets mid-handshake can't crash `hole up` / `hole invite`.
+
 **Upgrading from 0.3.x (0.4+):** Prefer `hole up` / `hole tunnel` (`agent` / `client` remain as aliases). Re-run `hole install-service --name …` so your unit runs `hole up` instead of `hole agent`.
 
 ---
