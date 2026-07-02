@@ -1,390 +1,390 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Hole — P2P access over HyperDHT</title>
-  <meta name="description" content="Zero port-forwarding. Zero VPN. Zero accounts. SSH, tunnel, and share files between machines over HyperDHT.">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Hole — P2P service access over HyperDHT</title>
+  <meta name="description" content="Zero port-forwarding, zero VPN, zero accounts. SSH in, tunnel any service, and share files machine-to-machine over HyperDHT — wherever they sit, however they're networked.">
+  <link rel="canonical" href="https://hole.onl">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://hole.onl">
+  <meta property="og:title" content="Hole — P2P service access over HyperDHT">
+  <meta property="og:description" content="Zero port-forwarding, zero VPN, zero accounts. SSH in, tunnel any service, and share files machine-to-machine over HyperDHT.">
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:title" content="Hole — P2P service access over HyperDHT">
+  <meta name="twitter:description" content="Zero port-forwarding, zero VPN, zero accounts. SSH in, tunnel any service, and share files machine-to-machine over HyperDHT.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-    :root {
-      --bg:      #0d1117;
-      --surface: #161b22;
-      --border:  #30363d;
-      --text:    #e6edf3;
-      --muted:   #8b949e;
-      --dim:     #c9d1d9;
-      --accent:  #58a6ff;
-      --green:   #3fb950;
-      --mono:    'SF Mono', 'Fira Code', 'Consolas', monospace;
-      --sans:    'Inter', system-ui, -apple-system, sans-serif;
-    }
-
     body {
-      background: var(--bg);
-      color: var(--text);
-      font-family: var(--sans);
-      font-size: 17px;
-      line-height: 1.7;
+      background: #08090b;
+      color: #f4f5f2;
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+      font-size: 16px;
+      line-height: 1.6;
       min-height: 100vh;
       display: flex;
       flex-direction: column;
       align-items: center;
-      padding: 72px 32px 96px;
+      padding: 0 32px 100px;
     }
+    .container { width: 100%; max-width: 1180px; }
 
-    main { width: 100%; max-width: 900px; }
+    @keyframes holePulse { 0%, 100% { opacity: 0.35; transform: scale(1); } 50% { opacity: 1; transform: scale(1.25); } }
+    @keyframes beamFlow { to { stroke-dashoffset: -48; } }
+    @keyframes floatSlow { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-5px); } }
 
-    /* ── header ── */
-    .logo {
-      font-family: var(--mono);
-      font-size: 2.6rem;
-      font-weight: 700;
-      letter-spacing: -1px;
-      color: var(--text);
+    /* Install tabs */
+    .tab {
+      padding: 11px 20px; font-size: 0.82rem;
+      font-family: 'Inter', system-ui, -apple-system, sans-serif; font-weight: 500;
+      cursor: pointer; border: none; background: none;
+      border-bottom: 2px solid transparent; color: #8a8f98; transition: color 0.15s;
     }
-    .logo span { color: var(--accent); }
+    .tab:hover { color: #f4f5f2; }
+    .tab.active { color: #f4f5f2; border-bottom-color: oklch(80% 0.17 155); }
+    .panel { display: none; padding: 18px 20px; }
+    .panel.active { display: block; }
 
-    .tagline {
-      margin-top: 12px;
-      color: var(--dim);
-      font-size: 1.1rem;
-      font-weight: 400;
-      line-height: 1.6;
-      max-width: 540px;
-    }
-
-    .badges {
-      display: flex;
-      gap: 8px;
-      flex-wrap: wrap;
-      margin-top: 18px;
-    }
-    .badge {
-      font-size: 0.75rem;
-      font-family: var(--mono);
-      padding: 3px 10px;
-      border-radius: 20px;
-      border: 1px solid var(--border);
-      color: var(--muted);
-    }
-    .badge.green { border-color: var(--green); color: var(--green); }
-
-    /* ── install box ── */
-    .install-box {
-      margin-top: 48px;
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      overflow: hidden;
-    }
-
-    .install-tabs {
-      display: flex;
-      border-bottom: 1px solid var(--border);
-    }
-    .install-tab {
-      padding: 11px 22px;
-      font-size: 0.82rem;
-      font-family: var(--sans);
-      font-weight: 500;
-      color: var(--muted);
-      cursor: pointer;
-      border: none;
-      background: none;
-      border-bottom: 2px solid transparent;
-      transition: color 0.15s;
-    }
-    .install-tab.active {
-      color: var(--text);
-      border-bottom-color: var(--accent);
-    }
-
-    .install-panel { display: none; padding: 20px 24px; }
-    .install-panel.active { display: block; }
-
-    .cmd-line {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      background: var(--bg);
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      padding: 14px 18px;
-      font-family: var(--mono);
-      font-size: 0.9rem;
-    }
-    .cmd-line .prompt { color: var(--green); user-select: none; }
-    .cmd-line .cmd    { color: var(--text); flex: 1; word-break: break-all; }
-
+    /* Copy buttons */
     .copy-btn {
-      background: none;
-      border: 1px solid var(--border);
-      border-radius: 4px;
-      color: var(--muted);
-      cursor: pointer;
-      font-size: 0.75rem;
-      padding: 4px 10px;
-      font-family: var(--mono);
-      transition: color 0.15s, border-color 0.15s;
-      white-space: nowrap;
-      flex-shrink: 0;
+      background: none; border: 1px solid #23262c; border-radius: 4px; color: #8a8f98;
+      cursor: pointer; font-size: 0.72rem; padding: 4px 10px;
+      font-family: 'JetBrains Mono', monospace; transition: color 0.15s, border-color 0.15s;
+      white-space: nowrap; flex-shrink: 0;
     }
-    .copy-btn:hover { color: var(--text); border-color: var(--text); }
-    .copy-btn.copied { color: var(--green); border-color: var(--green); }
+    .copy-btn:hover { color: #f4f5f2; border-color: #f4f5f2; }
+    .copy-btn.copied { color: oklch(80% 0.17 155); border-color: oklch(80% 0.17 155); }
 
-    .install-note {
-      margin-top: 14px;
-      font-size: 0.85rem;
-      line-height: 1.65;
-      color: var(--muted);
+    /* Example tabs */
+    .ex-tab {
+      padding: 9px 16px; font-size: 0.82rem;
+      font-family: 'Inter', system-ui, -apple-system, sans-serif; font-weight: 500;
+      cursor: pointer; border: 1px solid #23262c; border-radius: 20px;
+      background: #111318; color: #8a8f98; transition: color 0.15s, border-color 0.15s, background 0.15s;
     }
-    .install-note a { color: var(--accent); text-decoration: none; }
-    .install-note a:hover { text-decoration: underline; }
+    .ex-tab:hover { color: #f4f5f2; border-color: #f4f5f2; }
+    .ex-tab.active { color: #08090b; background: oklch(80% 0.17 155); border-color: oklch(80% 0.17 155); font-weight: 700; }
+    .ex-panel { display: none; margin-top: 18px; }
+    .ex-panel.active { display: block; }
 
-    /* ── features ── */
-    .section-title {
-      margin-top: 64px;
-      font-family: var(--sans);
-      font-size: 0.8rem;
-      font-weight: 700;
-      letter-spacing: 0.1em;
-      text-transform: uppercase;
-      color: var(--dim);
-      border-bottom: 1px solid var(--border);
-      padding-bottom: 10px;
-    }
+    /* Command cards */
+    .cmd-card:hover { border-color: oklch(80% 0.17 155 / 0.5); transform: translateY(-2px); }
 
-    .features {
-      margin-top: 20px;
-      display: grid;
-      gap: 1px;
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      overflow: hidden;
-    }
-    .feature {
-      display: grid;
-      grid-template-columns: 180px 1fr;
-      gap: 20px;
-      padding: 16px 24px;
-      background: var(--surface);
-      align-items: start;
-    }
-    .feature:not(:last-child) { border-bottom: 1px solid var(--border); }
-    .feature code {
-      font-family: var(--mono);
-      font-size: 0.88rem;
-      font-weight: 600;
-      color: var(--accent);
-    }
-    .feature p {
-      font-size: 0.92rem;
-      color: var(--dim);
-      line-height: 1.6;
-    }
+    a { color: inherit; }
 
-    /* ── examples ── */
-    .examples { margin-top: 20px; display: flex; flex-direction: column; gap: 28px; }
-
-    .example { }
-    .example-label {
-      font-family: var(--sans);
-      font-size: 0.82rem;
-      font-weight: 600;
-      color: var(--dim);
-      margin-bottom: 10px;
-      letter-spacing: 0.01em;
+    @media (max-width: 860px) {
+      body { padding: 0 20px 72px; }
+      .hero { grid-template-columns: 1fr !important; padding: 32px 0 24px !important; }
+      .hero-title { font-size: 2.4rem !important; }
+      .hero-visual { display: none !important; }
+      .cmd-grid { grid-template-columns: 1fr !important; }
+      .cmp-scroll { overflow-x: auto; }
+      .cmp-table { min-width: 660px; }
     }
-    .code-block {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 18px 24px;
-      font-family: var(--mono);
-      font-size: 0.84rem;
-      line-height: 2;
-      overflow-x: auto;
-    }
-    .code-block .c  { color: var(--muted); }
-    .code-block .kw { color: var(--accent); }
-    .code-block .out { color: var(--green); }
-
-    /* ── footer ── */
-    footer {
-      margin-top: 80px;
-      font-size: 0.85rem;
-      font-weight: 500;
-      color: var(--muted);
-      text-align: center;
-    }
-    footer a { color: var(--accent); text-decoration: none; }
-    footer a:hover { text-decoration: underline; }
   </style>
 </head>
 <body>
-<main>
+<div class="container">
 
-  <header>
-    <div class="logo">H<span>o</span>le</div>
-    <p class="tagline">P2P service access over HyperDHT — no port forwarding, no VPN, no accounts.</p>
-    <div class="badges">
-      <span class="badge green">v0.5.0</span>
-      <span class="badge">Linux</span>
-      <span class="badge">macOS</span>
-      <span class="badge">Windows</span>
-      <span class="badge">Node ≥18</span>
+  <!-- Nav -->
+  <nav style="display:flex; align-items:center; justify-content:space-between; padding:32px 0;">
+    <div style="font-family:'JetBrains Mono',monospace; font-size:1.4rem; font-weight:700; letter-spacing:-0.5px; color:#f4f5f2;">h<span style="display:inline-block; width:0.52em; height:0.52em; margin:0 0.01em; border-radius:50%; border:2.5px solid oklch(80% 0.17 155); box-shadow:0 0 10px oklch(80% 0.17 155 / 0.55); vertical-align:0.03em;"></span>le</div>
+    <div style="display:flex; align-items:center; gap:24px;">
+      <span style="font-family:'JetBrains Mono',monospace; font-size:0.72rem; padding:4px 10px; border-radius:20px; border:1px solid oklch(80% 0.17 155 / 0.4); color:oklch(80% 0.17 155);">v0.5.0</span>
+      <a href="https://github.com/Annatar3/Hole" style="color:#c7cbd1; text-decoration:none; font-size:0.9rem; font-weight:500;">GitHub</a>
     </div>
-  </header>
+  </nav>
 
-  <!-- Install -->
-  <div class="install-box">
-    <div class="install-tabs">
-      <button class="install-tab active" onclick="switchTab('linux', this)">Linux / macOS</button>
-      <button class="install-tab" onclick="switchTab('windows', this)">Windows</button>
-      <button class="install-tab" onclick="switchTab('source', this)">From source</button>
-    </div>
+  <!-- Hero -->
+  <section class="hero" style="display:grid; grid-template-columns:1.1fr 0.9fr; gap:40px; align-items:center; padding:56px 0 40px;">
+    <div>
+      <div style="font-family:'JetBrains Mono',monospace; font-size:0.78rem; font-weight:600; letter-spacing:0.14em; text-transform:uppercase; color:oklch(78% 0.17 340);">Peer-to-peer over HyperDHT</div>
+      <h1 class="hero-title" style="margin-top:18px; font-family:'JetBrains Mono',monospace; font-size:3.4rem; font-weight:800; line-height:1.12; letter-spacing:-1.5px; color:#f4f5f2;">No port forwarding.<br>No VPN.<br>No accounts.</h1>
+      <p style="margin-top:22px; font-size:1.1rem; line-height:1.65; color:#c7cbd1; max-width:480px;">SSH in, tunnel any service, move files — machine to machine, wherever they sit, however they're networked.</p>
 
-    <div id="tab-linux" class="install-panel active">
-      <div class="cmd-line">
-        <span class="prompt">$</span>
-        <span class="cmd" id="cmd-linux">curl -fsSL hole.onl/get | sh</span>
-        <button class="copy-btn" onclick="copy('cmd-linux', this)">copy</button>
+      <!-- Install box -->
+      <div style="margin-top:36px; background:#111318; border:1px solid #23262c; border-radius:10px; overflow:hidden; max-width:560px;">
+        <div style="display:flex; border-bottom:1px solid #23262c;">
+          <button class="tab active" data-tab="linux">Linux / macOS</button>
+          <button class="tab" data-tab="windows">Windows</button>
+          <button class="tab" data-tab="source">From source</button>
+        </div>
+        <div class="panel active" id="panel-linux">
+          <div style="display:flex; align-items:center; gap:12px; background:#08090b; border:1px solid #23262c; border-radius:8px; padding:13px 16px; font-family:'JetBrains Mono',monospace; font-size:0.88rem;">
+            <span style="color:oklch(80% 0.17 155);">$</span>
+            <span style="color:#f4f5f2; flex:1; word-break:break-all;">curl -fsSL hole.onl/get | sh</span>
+            <button class="copy-btn" data-copy="curl -fsSL hole.onl/get | sh">copy</button>
+          </div>
+        </div>
+        <div class="panel" id="panel-windows">
+          <div style="display:flex; align-items:center; gap:12px; background:#08090b; border:1px solid #23262c; border-radius:8px; padding:13px 16px; font-family:'JetBrains Mono',monospace; font-size:0.88rem;">
+            <span style="color:oklch(80% 0.17 155);">PS&gt;</span>
+            <span style="color:#f4f5f2; flex:1; word-break:break-all;">irm hole.onl/get.ps1 | iex</span>
+            <button class="copy-btn" data-copy="irm hole.onl/get.ps1 | iex">copy</button>
+          </div>
+        </div>
+        <div class="panel" id="panel-source">
+          <div style="display:flex; flex-direction:column; gap:6px; background:#08090b; border:1px solid #23262c; border-radius:8px; padding:13px 16px; font-family:'JetBrains Mono',monospace; font-size:0.82rem;">
+            <span><span style="color:oklch(80% 0.17 155);">$</span> git clone https://github.com/Annatar3/Hole &amp;&amp; cd Hole</span>
+            <span><span style="color:oklch(80% 0.17 155);">$</span> npm install &amp;&amp; npm link</span>
+          </div>
+        </div>
       </div>
-      <p class="install-note">
-        Installs to <code>~/.local/bin/hole</code> by default.
-        Override with <code>INSTALL_DIR=/usr/local/bin curl -fsSL hole.onl/get | sh</code>.<br>
-        Or grab a binary directly from the <a href="https://github.com/Annatar3/Hole/releases">releases page</a>.
-      </p>
+      <p style="margin-top:14px; font-size:0.82rem; color:#8a8f98;">Node ≥18 · Linux, macOS, Windows · <a href="https://github.com/Annatar3/Hole/releases" style="color:oklch(78% 0.17 340);">binaries on the releases page</a></p>
     </div>
 
-    <div id="tab-windows" class="install-panel">
-      <div class="cmd-line">
-        <span class="prompt">PS&gt;</span>
-        <span class="cmd" id="cmd-windows">irm hole.onl/get.ps1 | iex</span>
-        <button class="copy-btn" onclick="copy('cmd-windows', this)">copy</button>
+    <!-- Network diagram -->
+    <div class="hero-visual" style="position:relative; display:flex; align-items:center; justify-content:center; height:420px;">
+      <svg viewBox="0 0 480 380" style="width:100%; max-width:460px;">
+        <path d="M60,190 Q240,90 420,190" fill="none" stroke="oklch(80% 0.17 155)" stroke-width="8" opacity="0.15"></path>
+        <path d="M60,190 Q240,90 420,190" fill="none" stroke="oklch(80% 0.17 155)" stroke-width="2" stroke-dasharray="10 8" style="animation:beamFlow 1.8s linear infinite;"></path>
+
+        <circle cx="180" cy="150" r="4" fill="#8a8f98" style="animation:holePulse 2.4s ease-in-out infinite; animation-delay:0.1s;"></circle>
+        <circle cx="240" cy="120" r="4" fill="#8a8f98" style="animation:holePulse 2.4s ease-in-out infinite; animation-delay:0.6s;"></circle>
+        <circle cx="300" cy="150" r="4" fill="#8a8f98" style="animation:holePulse 2.4s ease-in-out infinite; animation-delay:1.1s;"></circle>
+        <circle cx="220" cy="175" r="3" fill="#8a8f98" style="animation:holePulse 2.4s ease-in-out infinite; animation-delay:1.6s;"></circle>
+        <circle cx="270" cy="180" r="3" fill="#8a8f98" style="animation:holePulse 2.4s ease-in-out infinite; animation-delay:0.4s;"></circle>
+        <text x="240" y="95" text-anchor="middle" fill="#8a8f98" font-family="JetBrains Mono, monospace" font-size="11" letter-spacing="2">HyperDHT SWARM</text>
+
+        <circle cx="60" cy="190" r="11" fill="#08090b" stroke="oklch(78% 0.17 340)" stroke-width="3"></circle>
+        <text x="60" y="230" text-anchor="middle" fill="#f4f5f2" font-family="JetBrains Mono, monospace" font-weight="700" font-size="13">YOU</text>
+
+        <circle cx="420" cy="190" r="11" fill="#08090b" stroke="oklch(80% 0.17 155)" stroke-width="3" style="animation:floatSlow 3s ease-in-out infinite;"></circle>
+        <text x="420" y="230" text-anchor="middle" fill="#f4f5f2" font-family="JetBrains Mono, monospace" font-weight="700" font-size="13">SERVER</text>
+      </svg>
+    </div>
+  </section>
+
+  <!-- How it works -->
+  <section style="margin-top:60px;">
+    <div style="font-family:'JetBrains Mono',monospace; font-size:0.78rem; font-weight:700; letter-spacing:0.14em; text-transform:uppercase; color:#c7cbd1; border-bottom:1px solid #23262c; padding-bottom:12px;">How it works</div>
+    <div class="cmd-grid" style="margin-top:24px; display:grid; grid-template-columns:repeat(3, 1fr); gap:24px;">
+
+      <div style="background:#111318; border:1px solid #23262c; border-radius:12px; padding:26px 24px;">
+        <div style="font-family:'JetBrains Mono',monospace; font-size:0.85rem; font-weight:700; color:oklch(80% 0.17 155);">01</div>
+        <code style="display:block; margin-top:14px; font-family:'JetBrains Mono',monospace; font-size:1rem; font-weight:700; color:#f4f5f2;">hole up</code>
+        <p style="margin-top:10px; font-size:0.92rem; color:#8a8f98; line-height:1.6;">Announce this machine on the DHT — a public key, not a public IP.</p>
       </div>
-      <p class="install-note">
-        Installs to <code>%LOCALAPPDATA%\hole\hole.exe</code> and adds it to your user PATH.<br>
-        Or download <code>hole-win-x64.exe</code> from the <a href="https://github.com/Annatar3/Hole/releases">releases page</a>.
-      </p>
-    </div>
 
-    <div id="tab-source" class="install-panel">
-      <div class="cmd-line" style="flex-direction:column; align-items:flex-start; gap:4px;">
-        <span><span class="prompt" style="display:inline">$</span> <span class="cmd" style="display:inline">git clone https://github.com/Annatar3/Hole && cd Hole</span></span>
-        <span><span class="prompt" style="display:inline">$</span> <span class="cmd" style="display:inline">npm install && npm link</span></span>
-        <span><span class="prompt" style="display:inline">$</span> <span class="cmd" style="display:inline">hole help</span></span>
+      <div style="background:#111318; border:1px solid #23262c; border-radius:12px; padding:26px 24px;">
+        <div style="font-family:'JetBrains Mono',monospace; font-size:0.85rem; font-weight:700; color:oklch(80% 0.17 155);">02</div>
+        <div style="margin-top:14px; font-family:'JetBrains Mono',monospace; font-size:1rem; font-weight:700; color:#f4f5f2;">Peers connect directly</div>
+        <p style="margin-top:10px; font-size:0.92rem; color:#8a8f98; line-height:1.6;">HyperDHT finds a path between the two machines and holepunches straight through NAT. Traffic is encrypted end-to-end.</p>
       </div>
-      <p class="install-note">Requires Node ≥ 18. Use Node 22 (<code>.nvmrc</code>) for building release binaries.</p>
-    </div>
-  </div>
 
-  <!-- Features -->
-  <h2 class="section-title">What you get</h2>
-  <div class="features">
-    <div class="feature"><code>hole up</code>       <p>Announce this machine's services on the DHT. SSH forward is always included; add RDP, HTTP, or any TCP service with <code>--forward</code>.</p></div>
-    <div class="feature"><code>hole ssh</code>      <p>One-command interactive SSH through the tunnel. No port forwarding or VPN needed.</p></div>
-    <div class="feature"><code>hole tunnel</code>   <p>Expose any TCP service (RDP, HTTP, DB…) as a local port.</p></div>
-    <div class="feature"><code>hole proxy</code>    <p>Local SOCKS5 proxy that reaches any service on a remote network on demand — one tunnel instead of a forward per port.</p></div>
-    <div class="feature"><code>hole exec</code>     <p>Run a command on a remote host and get the output. No persistent session needed.</p></div>
-    <div class="feature"><code>hole copy</code>     <p>Transfer files to or from a remote host over the P2P tunnel.</p></div>
-    <div class="feature"><code>hole share</code>    <p>Send a file to anyone with a short one-time code — no pre-registration, no SSH keys.</p></div>
-    <div class="feature"><code>hole invite</code>   <p>Pair a new device with a short code. No need to copy a 64-character public key.</p></div>
-    <div class="feature"><code>hole relay</code>    <p>Self-hosted UDP relay for CGNAT and mobile networks. Deploy on any VPS.</p></div>
-    <div class="feature"><code>hole dashboard</code><p>Browser fleet UI — terminals, tunnels, exec, file browser, ACLs, audit log.</p></div>
-  </div>
+      <div style="background:#111318; border:1px solid #23262c; border-radius:12px; padding:26px 24px;">
+        <div style="font-family:'JetBrains Mono',monospace; font-size:0.85rem; font-weight:700; color:oklch(80% 0.17 155);">03</div>
+        <code style="display:block; margin-top:14px; font-family:'JetBrains Mono',monospace; font-size:1rem; font-weight:700; color:#f4f5f2;">hole ssh / tunnel / share</code>
+        <p style="margin-top:10px; font-size:0.92rem; color:#8a8f98; line-height:1.6;">Use the connection like it's local — a shell, a port, a file transfer.</p>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- Commands -->
+  <section style="margin-top:64px;">
+    <div style="font-family:'JetBrains Mono',monospace; font-size:0.78rem; font-weight:700; letter-spacing:0.14em; text-transform:uppercase; color:#c7cbd1; border-bottom:1px solid #23262c; padding-bottom:12px;">What you get</div>
+    <div class="cmd-grid" style="margin-top:24px; display:grid; grid-template-columns:repeat(2, 1fr); gap:14px;">
+
+      <div class="cmd-card" style="background:#111318; border:1px solid #23262c; border-radius:10px; padding:20px 22px; transition:border-color 0.15s, transform 0.15s;">
+        <code style="font-family:'JetBrains Mono',monospace; font-size:0.95rem; font-weight:700; color:oklch(80% 0.17 155);">hole up</code>
+        <p style="margin-top:8px; font-size:0.9rem; color:#8a8f98; line-height:1.55;">Announce this machine's services on the DHT. SSH forward is always included; add RDP, HTTP, or any TCP service with <code style="color:#c7cbd1;">--forward</code>.</p>
+      </div>
+      <div class="cmd-card" style="background:#111318; border:1px solid #23262c; border-radius:10px; padding:20px 22px; transition:border-color 0.15s, transform 0.15s;">
+        <code style="font-family:'JetBrains Mono',monospace; font-size:0.95rem; font-weight:700; color:oklch(80% 0.17 155);">hole ssh</code>
+        <p style="margin-top:8px; font-size:0.9rem; color:#8a8f98; line-height:1.55;">One-command interactive SSH through the tunnel. No port forwarding or VPN needed.</p>
+      </div>
+      <div class="cmd-card" style="background:#111318; border:1px solid #23262c; border-radius:10px; padding:20px 22px; transition:border-color 0.15s, transform 0.15s;">
+        <code style="font-family:'JetBrains Mono',monospace; font-size:0.95rem; font-weight:700; color:oklch(80% 0.17 155);">hole tunnel</code>
+        <p style="margin-top:8px; font-size:0.9rem; color:#8a8f98; line-height:1.55;">Expose any TCP service — RDP, HTTP, a database — as a local port.</p>
+      </div>
+      <div class="cmd-card" style="background:#111318; border:1px solid #23262c; border-radius:10px; padding:20px 22px; transition:border-color 0.15s, transform 0.15s;">
+        <code style="font-family:'JetBrains Mono',monospace; font-size:0.95rem; font-weight:700; color:oklch(80% 0.17 155);">hole proxy</code>
+        <p style="margin-top:8px; font-size:0.9rem; color:#8a8f98; line-height:1.55;">Local SOCKS5 proxy that reaches any service on a remote network on demand.</p>
+      </div>
+      <div class="cmd-card" style="background:#111318; border:1px solid #23262c; border-radius:10px; padding:20px 22px; transition:border-color 0.15s, transform 0.15s;">
+        <code style="font-family:'JetBrains Mono',monospace; font-size:0.95rem; font-weight:700; color:oklch(80% 0.17 155);">hole exec</code>
+        <p style="margin-top:8px; font-size:0.9rem; color:#8a8f98; line-height:1.55;">Run a command on a remote host and get the output. No persistent session needed.</p>
+      </div>
+      <div class="cmd-card" style="background:#111318; border:1px solid #23262c; border-radius:10px; padding:20px 22px; transition:border-color 0.15s, transform 0.15s;">
+        <code style="font-family:'JetBrains Mono',monospace; font-size:0.95rem; font-weight:700; color:oklch(80% 0.17 155);">hole copy</code>
+        <p style="margin-top:8px; font-size:0.9rem; color:#8a8f98; line-height:1.55;">Transfer files to or from a remote host over the P2P tunnel.</p>
+      </div>
+      <div class="cmd-card" style="background:#111318; border:1px solid #23262c; border-radius:10px; padding:20px 22px; transition:border-color 0.15s, transform 0.15s;">
+        <code style="font-family:'JetBrains Mono',monospace; font-size:0.95rem; font-weight:700; color:oklch(80% 0.17 155);">hole share</code>
+        <p style="margin-top:8px; font-size:0.9rem; color:#8a8f98; line-height:1.55;">Send a file to anyone with a short one-time code — no pre-registration, no SSH keys.</p>
+      </div>
+      <div class="cmd-card" style="background:#111318; border:1px solid #23262c; border-radius:10px; padding:20px 22px; transition:border-color 0.15s, transform 0.15s;">
+        <code style="font-family:'JetBrains Mono',monospace; font-size:0.95rem; font-weight:700; color:oklch(80% 0.17 155);">hole invite</code>
+        <p style="margin-top:8px; font-size:0.9rem; color:#8a8f98; line-height:1.55;">Pair a new device with a short code. No need to copy a 64-character public key.</p>
+      </div>
+      <div class="cmd-card" style="background:#111318; border:1px solid #23262c; border-radius:10px; padding:20px 22px; transition:border-color 0.15s, transform 0.15s;">
+        <code style="font-family:'JetBrains Mono',monospace; font-size:0.95rem; font-weight:700; color:oklch(80% 0.17 155);">hole relay</code>
+        <p style="margin-top:8px; font-size:0.9rem; color:#8a8f98; line-height:1.55;">Self-hosted UDP relay for CGNAT and mobile networks. Deploy on any VPS.</p>
+      </div>
+      <div class="cmd-card" style="background:#111318; border:1px solid #23262c; border-radius:10px; padding:20px 22px; transition:border-color 0.15s, transform 0.15s;">
+        <code style="font-family:'JetBrains Mono',monospace; font-size:0.95rem; font-weight:700; color:oklch(80% 0.17 155);">hole dashboard</code>
+        <p style="margin-top:8px; font-size:0.9rem; color:#8a8f98; line-height:1.55;">Browser fleet UI — terminals, tunnels, exec, file browser, ACLs, audit log.</p>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- Comparison -->
+  <section style="margin-top:64px;">
+    <div style="font-family:'JetBrains Mono',monospace; font-size:0.78rem; font-weight:700; letter-spacing:0.14em; text-transform:uppercase; color:#c7cbd1; border-bottom:1px solid #23262c; padding-bottom:12px;">How it compares</div>
+
+    <div class="cmp-scroll" style="margin-top:24px;">
+    <div class="cmp-table" style="border:1px solid #23262c; border-radius:12px; overflow:hidden;">
+      <div style="display:grid; grid-template-columns:1.4fr 1fr 1fr 1fr 1fr; background:#111318;">
+        <div style="padding:14px 18px; font-family:'JetBrains Mono',monospace; font-size:0.78rem; color:#8a8f98; letter-spacing:0.04em;"></div>
+        <div style="padding:14px 18px; font-family:'JetBrains Mono',monospace; font-size:0.82rem; font-weight:700; color:oklch(80% 0.17 155); text-align:center;">Hole</div>
+        <div style="padding:14px 18px; font-family:'JetBrains Mono',monospace; font-size:0.82rem; font-weight:700; color:#8a8f98; text-align:center;">VPN</div>
+        <div style="padding:14px 18px; font-family:'JetBrains Mono',monospace; font-size:0.82rem; font-weight:700; color:#8a8f98; text-align:center;">Reverse tunnel</div>
+        <div style="padding:14px 18px; font-family:'JetBrains Mono',monospace; font-size:0.82rem; font-weight:700; color:#8a8f98; text-align:center;">Port forwarding</div>
+      </div>
+
+      <div style="display:grid; grid-template-columns:1.4fr 1fr 1fr 1fr 1fr; border-top:1px solid #23262c;">
+        <div style="padding:14px 18px; font-size:0.86rem; color:#c7cbd1;">Setup</div>
+        <div style="padding:14px 18px; font-size:0.86rem; color:#f4f5f2; text-align:center; font-family:'JetBrains Mono',monospace;">~10 sec</div>
+        <div style="padding:14px 18px; font-size:0.86rem; color:#8a8f98; text-align:center;">Server + client</div>
+        <div style="padding:14px 18px; font-size:0.86rem; color:#8a8f98; text-align:center;">Account + domain</div>
+        <div style="padding:14px 18px; font-size:0.86rem; color:#8a8f98; text-align:center;">Router + firewall</div>
+      </div>
+      <div style="display:grid; grid-template-columns:1.4fr 1fr 1fr 1fr 1fr; border-top:1px solid #23262c;">
+        <div style="padding:14px 18px; font-size:0.86rem; color:#c7cbd1;">Account required</div>
+        <div style="padding:14px 18px; text-align:center; color:oklch(80% 0.17 155); font-family:'JetBrains Mono',monospace;">✕ no</div>
+        <div style="padding:14px 18px; text-align:center; color:#8a8f98;">usually</div>
+        <div style="padding:14px 18px; text-align:center; color:#8a8f98;">yes</div>
+        <div style="padding:14px 18px; text-align:center; color:oklch(80% 0.17 155); font-family:'JetBrains Mono',monospace;">✕ no</div>
+      </div>
+      <div style="display:grid; grid-template-columns:1.4fr 1fr 1fr 1fr 1fr; border-top:1px solid #23262c;">
+        <div style="padding:14px 18px; font-size:0.86rem; color:#c7cbd1;">Works behind CGNAT</div>
+        <div style="padding:14px 18px; text-align:center; color:oklch(80% 0.17 155); font-family:'JetBrains Mono',monospace;">✓ yes</div>
+        <div style="padding:14px 18px; text-align:center; color:#8a8f98;">no</div>
+        <div style="padding:14px 18px; text-align:center; color:#8a8f98;">yes</div>
+        <div style="padding:14px 18px; text-align:center; color:#8a8f98;">no</div>
+      </div>
+      <div style="display:grid; grid-template-columns:1.4fr 1fr 1fr 1fr 1fr; border-top:1px solid #23262c;">
+        <div style="padding:14px 18px; font-size:0.86rem; color:#c7cbd1;">End-to-end encrypted</div>
+        <div style="padding:14px 18px; text-align:center; color:oklch(80% 0.17 155); font-family:'JetBrains Mono',monospace;">✓ yes</div>
+        <div style="padding:14px 18px; text-align:center; color:#8a8f98;">depends</div>
+        <div style="padding:14px 18px; text-align:center; color:#8a8f98;">terminates at provider</div>
+        <div style="padding:14px 18px; text-align:center; color:#8a8f98;">no</div>
+      </div>
+      <div style="display:grid; grid-template-columns:1.4fr 1fr 1fr 1fr 1fr; border-top:1px solid #23262c;">
+        <div style="padding:14px 18px; font-size:0.86rem; color:#c7cbd1;">Self-hostable</div>
+        <div style="padding:14px 18px; text-align:center; color:oklch(80% 0.17 155); font-family:'JetBrains Mono',monospace;">✓ yes</div>
+        <div style="padding:14px 18px; text-align:center; color:#8a8f98;">yes</div>
+        <div style="padding:14px 18px; text-align:center; color:#8a8f98;">no</div>
+        <div style="padding:14px 18px; text-align:center; color:#8a8f98;">n/a</div>
+      </div>
+    </div>
+    </div>
+  </section>
 
   <!-- Examples -->
-  <h2 class="section-title">Examples</h2>
-  <div class="examples">
+  <section style="margin-top:64px;">
+    <div style="font-family:'JetBrains Mono',monospace; font-size:0.78rem; font-weight:700; letter-spacing:0.14em; text-transform:uppercase; color:#c7cbd1; border-bottom:1px solid #23262c; padding-bottom:12px;">Examples</div>
 
-    <div class="example">
-      <div class="example-label">Pair and SSH into a remote machine</div>
-      <div class="code-block">
-<span class="c"># on the remote machine</span>
-<span class="kw">hole</span> invite --name my-server
-<span class="out"># Invite code: blue-river-cedar-4821</span>
-
-<span class="c"># on your laptop</span>
-<span class="kw">hole</span> accept blue-river-cedar-4821
-<span class="kw">hole</span> ssh my-server
-      </div>
+    <div style="margin-top:24px; display:flex; gap:8px; flex-wrap:wrap;">
+      <button class="ex-tab active" data-ex="ssh">Remote SSH</button>
+      <button class="ex-tab" data-ex="share">Share a file</button>
+      <button class="ex-tab" data-ex="proxy">Reach a private network</button>
+      <button class="ex-tab" data-ex="relay">Multi-service + relay</button>
     </div>
 
-    <div class="example">
-      <div class="example-label">Send a file to anyone — no setup</div>
-      <div class="code-block">
-<span class="c"># sender</span>
-<span class="kw">hole</span> share report.pdf
-<span class="out"># Share code: amber-stone-cedar-7823</span>
+    <div class="ex-panel active" id="ex-ssh">
+      <div style="background:#111318; border:1px solid #23262c; border-radius:10px; padding:22px 26px; font-family:'JetBrains Mono',monospace; font-size:0.86rem; line-height:2; white-space:pre; overflow-x:auto;"><span style="color:#8a8f98;"># on the remote machine</span>
+<span style="color:oklch(80% 0.17 155);">hole</span> invite --name my-server
+<span style="color:oklch(78% 0.17 340);"># Invite code: blue-river-cedar-4821</span>
 
-<span class="c"># receiver (any machine)</span>
-<span class="kw">hole</span> receive amber-stone-cedar-7823
-<span class="out"># Saved to report.pdf</span>
-      </div>
+<span style="color:#8a8f98;"># on your laptop</span>
+<span style="color:oklch(80% 0.17 155);">hole</span> accept blue-river-cedar-4821
+<span style="color:oklch(80% 0.17 155);">hole</span> ssh my-server</div>
     </div>
 
-    <div class="example">
-      <div class="example-label">Reach a remote network's internal services</div>
-      <div class="code-block">
-<span class="c"># machine with access to the internal services</span>
-<span class="kw">hole</span> up --name my-net --proxy
+    <div class="ex-panel" id="ex-share">
+      <div style="background:#111318; border:1px solid #23262c; border-radius:10px; padding:22px 26px; font-family:'JetBrains Mono',monospace; font-size:0.86rem; line-height:2; white-space:pre; overflow-x:auto;"><span style="color:#8a8f98;"># sender</span>
+<span style="color:oklch(80% 0.17 155);">hole</span> share report.pdf
+<span style="color:oklch(78% 0.17 340);"># Share code: amber-stone-cedar-7823</span>
 
-<span class="c"># your laptop</span>
-<span class="kw">hole</span> proxy my-net
-<span class="out"># SOCKS5 : 127.0.0.1:1080</span>
-
-curl --socks5-hostname 127.0.0.1:1080 http://internal-dashboard.lan
-      </div>
+<span style="color:#8a8f98;"># receiver (any machine)</span>
+<span style="color:oklch(80% 0.17 155);">hole</span> receive amber-stone-cedar-7823
+<span style="color:oklch(78% 0.17 340);"># Saved to report.pdf</span></div>
     </div>
 
-    <div class="example">
-      <div class="example-label">Expose multiple services + relay (CGNAT)</div>
-      <div class="code-block">
-<span class="c"># VPS — open UDP 49737 in firewall first</span>
-<span class="kw">hole</span> relay --host 203.0.113.10
+    <div class="ex-panel" id="ex-proxy">
+      <div style="background:#111318; border:1px solid #23262c; border-radius:10px; padding:22px 26px; font-family:'JetBrains Mono',monospace; font-size:0.86rem; line-height:2; white-space:pre; overflow-x:auto;"><span style="color:#8a8f98;"># machine with access to the internal services</span>
+<span style="color:oklch(80% 0.17 155);">hole</span> up --name my-net --proxy
 
-<span class="c"># remote machine</span>
-<span class="kw">hole</span> up --name my-pc --relay 203.0.113.10:49737 \
+<span style="color:#8a8f98;"># your laptop</span>
+<span style="color:oklch(80% 0.17 155);">hole</span> proxy my-net
+<span style="color:oklch(78% 0.17 340);"># SOCKS5 : 127.0.0.1:1080</span>
+
+curl --socks5-hostname 127.0.0.1:1080 http://internal-dashboard.lan</div>
+    </div>
+
+    <div class="ex-panel" id="ex-relay">
+      <div style="background:#111318; border:1px solid #23262c; border-radius:10px; padding:22px 26px; font-family:'JetBrains Mono',monospace; font-size:0.86rem; line-height:2; white-space:pre; overflow-x:auto;"><span style="color:#8a8f98;"># VPS — open UDP 49737 in firewall first</span>
+<span style="color:oklch(80% 0.17 155);">hole</span> relay --host 203.0.113.10
+
+<span style="color:#8a8f98;"># remote machine</span>
+<span style="color:oklch(80% 0.17 155);">hole</span> up --name my-pc --relay 203.0.113.10:49737 \
          --forward rdp:3389 --forward web:3000
 
-<span class="c"># laptop</span>
-<span class="kw">hole</span> tunnel my-pc rdp   <span class="c"># RDP on localhost:&lt;port&gt;</span>
-<span class="kw">hole</span> tunnel my-pc web   <span class="c"># browser on localhost:&lt;port&gt;</span>
-      </div>
+<span style="color:#8a8f98;"># laptop</span>
+<span style="color:oklch(80% 0.17 155);">hole</span> tunnel my-pc rdp   <span style="color:#8a8f98;"># RDP on localhost:&lt;port&gt;</span>
+<span style="color:oklch(80% 0.17 155);">hole</span> tunnel my-pc web   <span style="color:#8a8f98;"># browser on localhost:&lt;port&gt;</span></div>
     </div>
+  </section>
 
-  </div>
-
-  <footer>
-    <a href="https://github.com/Annatar3/Hole">GitHub</a> ·
-    <a href="https://github.com/Annatar3/Hole/releases">Releases</a> ·
-    <a href="https://github.com/Annatar3/Hole/issues">Issues</a>
+  <footer style="margin-top:90px; padding-top:32px; border-top:1px solid #23262c; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:16px;">
+    <div style="font-family:'JetBrains Mono',monospace; font-size:0.85rem; color:#8a8f98;">hole — built on HyperDHT</div>
+    <div style="display:flex; gap:24px; font-size:0.88rem;">
+      <a href="https://github.com/Annatar3/Hole" style="color:#c7cbd1; text-decoration:none;">GitHub</a>
+      <a href="https://github.com/Annatar3/Hole/releases" style="color:#c7cbd1; text-decoration:none;">Releases</a>
+      <a href="https://github.com/Annatar3/Hole/issues" style="color:#c7cbd1; text-decoration:none;">Issues</a>
+    </div>
   </footer>
 
-</main>
+</div>
 
 <script>
-  function switchTab(name, btn) {
-    document.querySelectorAll('.install-tab').forEach(t => t.classList.remove('active'))
-    document.querySelectorAll('.install-panel').forEach(p => p.classList.remove('active'))
-    btn.classList.add('active')
-    document.getElementById('tab-' + name).classList.add('active')
-  }
+  // Install tabs
+  document.querySelectorAll('.tab').forEach(function (t) {
+    t.addEventListener('click', function () {
+      document.querySelectorAll('.tab').forEach(function (x) { x.classList.remove('active'); });
+      document.querySelectorAll('.panel').forEach(function (x) { x.classList.remove('active'); });
+      t.classList.add('active');
+      document.getElementById('panel-' + t.dataset.tab).classList.add('active');
+    });
+  });
 
-  function copy(id, btn) {
-    const text = document.getElementById(id).textContent
-    navigator.clipboard.writeText(text).then(() => {
-      btn.textContent = 'copied!'
-      btn.classList.add('copied')
-      setTimeout(() => { btn.textContent = 'copy'; btn.classList.remove('copied') }, 2000)
-    })
-  }
+  // Example tabs
+  document.querySelectorAll('.ex-tab').forEach(function (t) {
+    t.addEventListener('click', function () {
+      document.querySelectorAll('.ex-tab').forEach(function (x) { x.classList.remove('active'); });
+      document.querySelectorAll('.ex-panel').forEach(function (x) { x.classList.remove('active'); });
+      t.classList.add('active');
+      document.getElementById('ex-' + t.dataset.ex).classList.add('active');
+    });
+  });
+
+  // Copy buttons
+  document.querySelectorAll('.copy-btn').forEach(function (b) {
+    b.addEventListener('click', function () {
+      navigator.clipboard.writeText(b.dataset.copy).then(function () {
+        b.textContent = 'copied!';
+        b.classList.add('copied');
+        setTimeout(function () { b.textContent = 'copy'; b.classList.remove('copied'); }, 2000);
+      });
+    });
+  });
 </script>
 </body>
 </html>
