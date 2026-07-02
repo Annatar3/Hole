@@ -210,7 +210,8 @@ jobs:
             test/e2e/local-tunnel.test.js \
             test/e2e/invite.test.js \
             test/e2e/ssh-flows.test.js \
-            test/e2e/share.test.js 2>&1 | tee "${tap}"
+            test/e2e/share.test.js \
+            test/e2e/proxy.test.js 2>&1 | tee "${tap}"
           code=${PIPESTATUS[0]}
           set -e
           echo "::endgroup::"
@@ -233,7 +234,7 @@ jobs:
         run: |
           echo "## 🔗 E2E tests" >> "${GITHUB_STEP_SUMMARY}"
           echo "" >> "${GITHUB_STEP_SUMMARY}"
-          echo "**Runner:** \`node --test --test-concurrency=1 test/e2e/{local-tunnel,invite,ssh-flows,share}.test.js\` — SSH cases skip without \`ssh\`/\`scp\`." >> "${GITHUB_STEP_SUMMARY}"
+          echo "**Runner:** \`node --test --test-concurrency=1 test/e2e/{local-tunnel,invite,ssh-flows,share,proxy}.test.js\` — SSH cases skip without \`ssh\`/\`scp\`." >> "${GITHUB_STEP_SUMMARY}"
           echo "" >> "${GITHUB_STEP_SUMMARY}"
 
           tap="test-results/e2e.tap"

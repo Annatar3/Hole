@@ -1,6 +1,15 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { normalizePort, normalizeRelayAddress, parseArgs } from '../../lib/utils.js'
+import {
+  normalizePort,
+  normalizeRelayAddress,
+  parseArgs,
+  isPrivateAddress,
+  isRetryable,
+  backoffDelay,
+  RETRY_BASE_MS,
+  RETRY_MAX_MS
+} from '../../lib/utils.js'
 import { createInviteCode, isInviteCode } from '../../lib/invite.js'
 
 test('parseArgs separates positionals, values, booleans, and repeated flags', () => {
@@ -51,4 +60,48 @@ test('invite codes are three-word tokens with ~37 bits of entropy', () => {
   const parts = code.split('-')
   assert.equal(parts.length, 4)
   assert.match(parts[3], /^\d{4}$/)
+})
+
+test('isPrivateAddress flags loopback/RFC1918/link-local, allows public IPs', () => {
+  assert.equal(isPrivateAddress('127.0.0.1'), true)
+  assert.equal(isPrivateAddress('10.0.0.5'), true)
+  assert.equal(isPrivateAddress('172.16.0.1'), true)
+  assert.equal(isPrivateAddress('172.31.255.255'), true)
+  assert.equal(isPrivateAddress('172.32.0.1'), false)
+  assert.equal(isPrivateAddress('192.168.1.1'), true)
+  assert.equal(isPrivateAddress('169.254.1.1'), true)
+  assert.equal(isPrivateAddress('0.0.0.0'), true)
+  assert.equal(isPrivateAddress('8.8.8.8'), false)
+  assert.equal(isPrivateAddress('93.184.216.34'), false)
+  assert.equal(isPrivateAddress('::1'), true)
+  assert.equal(isPrivateAddress('fe80::1'), true)
+  assert.equal(isPrivateAddress('fd00::1'), true)
+  assert.equal(isPrivateAddress('2001:4860:4860::8888'), false)
+})
+
+test('isRetryable retries transient hole-punch/network codes only', () => {
+  for (const code of ['HOLEPUNCH_ABORTED', 'HOLEPUNCH_TIMEOUT', 'PEER_NOT_FOUND', 'PEER_CONNECTION_FAILED', 'ETIMEDOUT']) {
+    assert.equal(isRetryable(code), true, `${code} should be retryable`)
+  }
+  for (const code of ['ECONNREFUSED', 'EACCES', undefined, null, 'SOME_FATAL_ERROR']) {
+    assert.equal(isRetryable(code), false, `${code} should not be retryable`)
+  }
+})
+
+test('backoffDelay grows exponentially, stays within jitter bounds, and caps', () => {
+  // For each attempt the base component is min(RETRY_MAX_MS, RETRY_BASE_MS * 2^(n-1)),
+  // and the returned delay is in [base, base * 1.25). Sample repeatedly to exercise jitter.
+  for (const attempt of [1, 2, 3, 4, 5, 8]) {
+    const exp = Math.min(RETRY_MAX_MS, RETRY_BASE_MS * 2 ** (attempt - 1))
+    for (let i = 0; i < 200; i++) {
+      const d = backoffDelay(attempt)
+      assert.ok(d >= exp, `attempt ${attempt}: ${d} >= ${exp}`)
+      assert.ok(d < exp * 1.25 + 1, `attempt ${attempt}: ${d} < ${exp * 1.25}`)
+    }
+  }
+
+  // Base component is monotonic non-decreasing and never exceeds the cap.
+  assert.equal(Math.min(RETRY_MAX_MS, RETRY_BASE_MS), RETRY_BASE_MS)
+  const capped = backoffDelay(20)
+  assert.ok(capped >= RETRY_MAX_MS && capped < RETRY_MAX_MS * 1.25 + 1, `capped delay ${capped} near ${RETRY_MAX_MS}`)
 })
