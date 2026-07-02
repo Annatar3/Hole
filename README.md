@@ -22,6 +22,7 @@ hole ssh/tunnel ──[relay]──── hole up
 | `hole exec` | Run a command remotely, get output, exit |
 | `hole copy` | `scp`-style file transfer over P2P |
 | `hole tunnel` | Expose any TCP service (RDP, HTTP, DB…) locally |
+| `hole proxy` | Local SOCKS5 proxy that reaches any service on a remote network |
 | `hole share` | Send a file to anyone with a short one-time code — no pre-registration |
 | `hole key` | Show this machine's Hole public key for pairing/ACL setup |
 | `hole services` | Inspect registered service keys |
@@ -72,7 +73,7 @@ Tests run entirely on the local machine / CI runner. They do not use GCP instanc
 ```bash
 npm run test:unit  # pure helpers: args, registry, identity
 npm run test:cli   # CLI command smoke tests with isolated HOME
-npm run test:e2e   # P2P stacks: invite, tunnel, share, --forward, hole exec/ssh/copy (needs OpenSSH ssh+scp in PATH)
+npm run test:e2e   # P2P stacks: invite, tunnel, share, proxy, --forward, hole exec/ssh/copy (needs OpenSSH ssh+scp in PATH)
 npm test           # all of the above
 ```
 
@@ -140,6 +141,54 @@ Save to a specific path with `--out`:
 ```bash
 hole receive amber-stone-cedar-7823 --out ~/Downloads/report.pdf
 ```
+
+### Reach any service on a remote network — hole proxy
+
+`hole proxy` gives you a local SOCKS5 proxy whose exit is a machine running
+`hole up --proxy`. Instead of declaring a `--forward` for every port ahead of
+time, you get **one tunnel that can reach anything the remote host can reach** —
+internal dashboards, a database, a Kubernetes API, an admin panel on the remote
+LAN — resolved on demand. Think of it as a jump host without any SSH config.
+
+On the remote machine (the one with access to the services you want):
+
+```bash
+hole up --name my-net --proxy
+```
+
+Locally:
+
+```bash
+hole proxy my-net
+# SOCKS5 : 127.0.0.1:1080
+```
+
+Point a client at it:
+
+```bash
+curl --socks5-hostname 127.0.0.1:1080 http://internal-dashboard.lan
+psql "host=10.0.0.5 ..."   # via a SOCKS-aware client / proxychains
+```
+
+The tunnel itself is the same Noise-encrypted HyperDHT transport as the rest of
+Hole — no separate VPN protocol, no new stack. It also carries ordinary web
+traffic, so it works as a personal "browse through another machine" proxy; just
+be aware it is **not** a hardened censorship-circumvention tool — HyperDHT has no
+traffic obfuscation and is fingerprintable, so don't rely on it against an
+adversary doing active protocol analysis.
+
+**Security notes:**
+
+- Reaching internal/LAN targets on the remote side (e.g. `10.x`, `192.168.x`) is
+  often the whole point, but it's opt-in: by default the exit refuses to dial
+  private/loopback/link-local addresses (RFC1918, `127.0.0.0/8`,
+  `169.254.0.0/16`, `fc00::/7`, `fe80::/10`) so an untrusted client can't pivot
+  into the network. Add `--proxy-allow-lan` on `hole up` to allow them.
+- An open ACL means **anyone who has the proxy service key can route traffic
+  through this machine**. `hole up --proxy` warns loudly if the ACL is empty;
+  restrict it with `hole acl add <name> <key>` before exposing a real exit.
+- Only `CONNECT`-style TCP proxying is supported (no UDP ASSOCIATE, no BIND) —
+  enough for HTTP(S), most TCP services, and `curl`/browser/proxychains clients.
 
 ### Manual pairing — copy the key
 
@@ -309,11 +358,12 @@ If `doctor` passes and `ping` returns a latency, everything is working. If `ping
 
 | Command | What it does |
 |---|---|
-| `hole up [--name N] [--relay host:port] [--forward svc:port]` | Announce this machine's services on HyperDHT |
+| `hole up [--name N] [--relay host:port] [--forward svc:port] [--proxy] [--proxy-allow-lan]` | Announce this machine's services on HyperDHT |
 | `hole ssh <device> [user] [-- extra-ssh-args]` | Open an interactive SSH session |
 | `hole exec <device> <user> -- <cmd>` | Run a command, capture output, exit |
 | `hole copy <src> <dest> [user]` | Copy files (`device:/path` for remote side) |
 | `hole tunnel <device> [service] [--port N]` | Expose a TCP service locally |
+| `hole proxy <device> [--port N] [--relay host:port]` | Local SOCKS5 proxy reaching any service on a remote network |
 | `hole relay --host <ip> [--port N]` | Run a relay server |
 | `hole invite [--name N] [--relay R]` | Create a short-lived pairing invite |
 | `hole accept <code> [--relay R]` | Accept an invite and register the device |

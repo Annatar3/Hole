@@ -29,6 +29,7 @@ Usage:
   hole copy <src> <dest>       Copy files to/from a remote host via scp
   hole ping <target>           Check if a remote service is reachable (DHT latency)
   hole tunnel <target> [svc]   Open a local port to a remote service
+  hole proxy <target>          Local SOCKS5 proxy that reaches any service on a remote network
   hole relay --host <ip>       Start a relay node (for CGNAT / mobile hotspot)
   hole invite                  Create a short-lived pairing invite
   hole accept <code>           Accept a pairing invite and add the device
@@ -58,6 +59,8 @@ Options for up:
   --relay   <host:port>        Use a custom relay node
   --port    <n>                SSH port on this host (default: 22)
   --forward <svc:port>         Add a named forward, e.g. --forward rdp:3389
+  --proxy                      Announce a SOCKS5 exit service (for hole proxy)
+  --proxy-allow-lan            Allow the proxy to dial private/LAN addresses (default: refused)
 
 Options for ssh:
   --user    <name>             SSH username (default: current OS user)
@@ -95,6 +98,10 @@ Options for key:
 
 Options for tunnel:
   --port    <n>                Local proxy port (default: 2222)
+  --relay   <host:port>        Use a custom relay node
+
+Options for proxy:
+  --port    <n>                Local SOCKS5 port (default: 1080)
   --relay   <host:port>        Use a custom relay node
 
 Options for dashboard:
@@ -145,6 +152,10 @@ Examples:
   hole up --name my-pc --forward rdp:3389 --forward web:3000
   hole tunnel my-pc rdp   # opens local port for RDP
   hole tunnel my-pc web   # opens local port for browser
+
+  # SOCKS5 into a remote network (reach internal services on demand):
+  hole up --name my-net --proxy          # on the machine with access
+  hole proxy my-net                      # locally: 127.0.0.1:1080
 
   # Relay mode (for CGNAT / mobile networks):
   hole relay --host 203.0.113.10 --port 49737       # on a VPS with UDP 49737 open
@@ -287,7 +298,9 @@ async function main () {
         relay:    relayOrNull(flags.relay),
         forwards: parseForwards(flags.forward),
         sshHost:  process.env.SSH_HOST ?? '127.0.0.1',
-        sshPort:  portOrDie(flags.port ?? process.env.SSH_PORT ?? '22', '--port')
+        sshPort:  portOrDie(flags.port ?? process.env.SSH_PORT ?? '22', '--port'),
+        proxy:         flags.proxy === true,
+        proxyAllowLan: flags['proxy-allow-lan'] === true
       })
       break
     }
@@ -396,6 +409,21 @@ async function main () {
         target,
         service,
         port:  portOrDie(flags.port ?? '2222', '--port'),
+        relay: relayOrNull(flags.relay ?? dev?.relay ?? null, flags.relay ? '--relay' : 'registered relay')
+      })
+      break
+    }
+
+    // ── proxy ──────────────────────────────────────────────────────────────
+    case 'proxy': {
+      const target = positional[0]
+      if (!target) die('Usage: hole proxy <name|key> [--port 1080] [--relay host:port]')
+      const { run } = await import('./lib/proxy.js')
+      const devices = loadRegistry()
+      const dev     = /^[0-9a-f]{64}$/i.test(target) ? null : devices[target]
+      await run({
+        target,
+        port:  portOrDie(flags.port ?? '1080', '--port'),
         relay: relayOrNull(flags.relay ?? dev?.relay ?? null, flags.relay ? '--relay' : 'registered relay')
       })
       break
@@ -522,10 +550,10 @@ _hole_completion() {
   COMPREPLY=()
   cur="\${COMP_WORDS[COMP_CWORD]}"
   prev="\${COMP_WORDS[COMP_CWORD-1]}"
-  opts="up ssh exec copy ping tunnel relay invite accept share receive install-service uninstall-service list add remove status key whoami services audit dashboard acl doctor help completion"
+  opts="up ssh exec copy ping tunnel proxy relay invite accept share receive install-service uninstall-service list add remove status key whoami services audit dashboard acl doctor help completion"
 
   case "\${prev}" in
-    ssh|exec|copy|ping|tunnel|client|services|remove|add)
+    ssh|exec|copy|ping|tunnel|proxy|client|services|remove|add)
       local devices=$(hole list | awk 'NR>2 {print $1}' | grep -v '^─' | grep -v '^$')
       COMPREPLY=( $(compgen -W "\${devices}" -- \${cur}) )
       return 0

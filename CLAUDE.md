@@ -31,9 +31,11 @@ E2E tests skip SSH-related cases if `ssh`/`scp` are not in `PATH`. Each suite is
 
 **Key data flow:**
 
-- `hole up` (`lib/agent.js`): loads/creates `~/.hole/keypair` (96-byte Ed25519, HyperDHT format), creates one DHT server per service. The SSH forward always uses the master keypair; additional `--forward` services each get a derived keypair via `crypto.createHash('sha256').update(masterSecretKey).update(':serviceName').digest()` → `DHT.keyPair(seed)`.
+- `hole up` (`lib/agent.js`): loads/creates `~/.hole/keypair` (96-byte Ed25519, HyperDHT format), creates one DHT server per service. The SSH forward always uses the master keypair; additional `--forward` services each get a derived keypair via `crypto.createHash('sha256').update(masterSecretKey).update(':serviceName').digest()` → `DHT.keyPair(seed)`. With `--proxy` it also announces a dynamic `proxy` service (derived key) whose connections carry a `{host,port}\n` JSON header the agent dials on demand; targets are guarded by `isPrivateAddress()` unless `--proxy-allow-lan`. HyperDHT self-heals on network change / sleep-wake, so the agent only logs those events rather than rebuilding.
 
-- `hole tunnel/ssh/exec/copy` (`lib/client.js`): resolves device name → hex public key via `lib/registry.js`, then `openProxy()` starts a local TCP proxy on a free port that pipes each accepted connection through a DHT tunnel. `ssh`/`exec`/`copy` spawn the OS `ssh`/`scp` binary pointing at the local proxy port.
+- `hole tunnel/ssh/exec/copy` (`lib/client.js`): resolves device name → hex public key via `lib/registry.js`, then `openProxy()` starts a local TCP proxy on a free port that pipes each accepted connection through a DHT tunnel. `ssh`/`exec`/`copy` spawn the OS `ssh`/`scp` binary pointing at the local proxy port. `connectWithRetry()` retries transient DHT errors (`isRetryable()`) with exponential+jitter backoff (`backoffDelay()`).
+
+- `hole proxy` (`lib/proxy.js`): runs a local SOCKS5 server (parser in `lib/socks5.js`, CONNECT-only). Each CONNECT opens a DHT tunnel to a peer running `hole up --proxy`, sends the `{host,port}\n` header, and splices the sockets once the agent confirms. Reuses `resolveTarget`/`connectWithRetry`/`findFreePort` from `client.js`.
 
 - `hole invite/accept` (`lib/invite.js`): derives a temporary DHT keypair from the invite code string (via SHA-256). The inviting side listens on that keypair and sends a JSON payload; the accepting side connects, receives it, and calls `addDevice()`.
 

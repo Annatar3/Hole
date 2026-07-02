@@ -290,6 +290,7 @@
     <div class="feature"><code>hole up</code>       <p>Announce this machine's services on the DHT. SSH forward is always included; add RDP, HTTP, or any TCP service with <code>--forward</code>.</p></div>
     <div class="feature"><code>hole ssh</code>      <p>One-command interactive SSH through the tunnel. No port forwarding or VPN needed.</p></div>
     <div class="feature"><code>hole tunnel</code>   <p>Expose any TCP service (RDP, HTTP, DB…) as a local port.</p></div>
+    <div class="feature"><code>hole proxy</code>    <p>Local SOCKS5 proxy that reaches any service on a remote network on demand — one tunnel instead of a forward per port.</p></div>
     <div class="feature"><code>hole exec</code>     <p>Run a command on a remote host and get the output. No persistent session needed.</p></div>
     <div class="feature"><code>hole copy</code>     <p>Transfer files to or from a remote host over the P2P tunnel.</p></div>
     <div class="feature"><code>hole share</code>    <p>Send a file to anyone with a short one-time code — no pre-registration, no SSH keys.</p></div>
@@ -325,6 +326,20 @@
 <span class="c"># receiver (any machine)</span>
 <span class="kw">hole</span> receive amber-stone-cedar-7823
 <span class="out"># Saved to report.pdf</span>
+      </div>
+    </div>
+
+    <div class="example">
+      <div class="example-label">Reach a remote network's internal services</div>
+      <div class="code-block">
+<span class="c"># machine with access to the internal services</span>
+<span class="kw">hole</span> up --name my-net --proxy
+
+<span class="c"># your laptop</span>
+<span class="kw">hole</span> proxy my-net
+<span class="out"># SOCKS5 : 127.0.0.1:1080</span>
+
+curl --socks5-hostname 127.0.0.1:1080 http://internal-dashboard.lan
       </div>
     </div>
 
